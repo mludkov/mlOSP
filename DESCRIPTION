@@ -1,0 +1,12 @@
+Package: mlOSP
+Title: Regression Monte Carlo Algorithms for Optimal Stopping
+Version: 0.2
+Authors@R: person("Mike", "Ludkovski", email = "ludkovski@pstat.ucsb.edu", role = c("aut", "cre"))
+Maintainer: Mike Ludkovski <ludkovski@pstat.ucsb.edu>
+Description: A suite of regression Monte Carlo algorirthms. Includes both static and sequential designs. Main approaches are Bouchard-Warin, LSM with spline/randomForest/MARS response surfaces, dynaTree and DiceKriging. Key functions: mc.put.ls, mc.put.spl, mc.doe.km, mc.put.adaptree
+Depends: R (>= 3.3.1)
+License: What license is it under?
+LazyData: true
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr
+RoxygenNote: 6.1.1
