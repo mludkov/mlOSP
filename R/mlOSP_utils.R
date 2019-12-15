@@ -144,6 +144,10 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6
   }
   if (is(fit,"dynaTree")  )
     obj <- predict(fit,cbind(gr$x,gr$y),quants=F)$mean
+  if (is(fit,"lm") ) {
+    obj <-  fit$coefficients[1] + model$bases(cbind(gr$x,gr$y)) %*%
+      fit$coefficients[2:length(fit$coefficients)]
+  }
   
   if (class(fit)=="km" & show.var == FALSE)
     obj <- predict(fit,data.frame(x=cbind(gr$x,gr$y)), type="UK")$mean
@@ -355,15 +359,29 @@ cf.mcu <- function(objMean, objSd)
 }
 
 #####################
-#' tMSE for Contour Finding
+#' straddle MCU with constant variance weight
 #'
-#' @title Maximum Contour Uncertainty criterion
+#' @title Straddle Maximum Contour Uncertainty criterion
 #' @param objMean: predicted mean response
 #' @param objSd: posterior standard deviation of the response
-#' @param seps: epsilon in the tMSE formula
+#' @param gamma: weight on the variance
+#' @details   compute the UCB criterion with constant weight: gamma*s(x) - |f(x)|
+#' @export
+cf.smcu <- function(objMean, objSd, gamma=1.96)
+{
+  return( gamma*objSd - abs(objMean) )
+}
+
+#####################
+#' tMSE for Contour Finding
+#'
+#' @title targeted Mean Squared Error criterion
+#' @param objMean: predicted mean response
+#' @param objSd: posterior standard deviation of the response
+#' @param seps: epsilon in the tMSE formula. By default taken to be zero.
 #' @details   compute predictive density at the contour, smoothed by seps
 #' @export
-cf.tMSE <- function(objMean, objSd, seps = 0.05)
+cf.tMSE <- function(objMean, objSd, seps = 0)
 {
   
   w <- 1/sqrt(2 * pi * (objSd^2 + seps)) * exp(-0.5 * (objMean / sqrt(objSd^2 + seps))^2)

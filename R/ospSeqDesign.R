@@ -153,6 +153,8 @@ osp.seq.design <- function(model,method="km")
         al.weights <- cf.tMSE(cand.mean, cand.sd, seps = model$tmse.eps)
       if (model$al.heuristic == 'mcu')
         al.weights <- cf.mcu(cand.mean, cand.sd)
+      if (model$al.heuristic == 'smcu')
+        al.weights <- cf.smcu(cand.mean, cand.sd, model$ucb.gamma)
       if (model$al.heuristic == 'csur')
         al.weights <- cf.csur(cand.mean, cand.sd,nugget=nug)
       if (model$al.heuristic == 'icu') {
