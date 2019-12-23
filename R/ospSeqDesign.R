@@ -155,6 +155,10 @@ osp.seq.design <- function(model,method="km")
         al.weights <- cf.mcu(cand.mean, cand.sd)
       if (model$al.heuristic == 'smcu')
         al.weights <- cf.smcu(cand.mean, cand.sd, model$ucb.gamma)
+      if (model$al.heuristic == 'amcu') {
+        adaptive.gamma <- (quantile(cand.mean, 0.75) - quantile(cand.mean, 0.25))/mean(cand.sd)
+        al.weights <- cf.smcu(cand.mean, cand.sd, adaptive.gamma)
+      }
       if (model$al.heuristic == 'csur')
         al.weights <- cf.csur(cand.mean, cand.sd,nugget=nug)
       if (model$al.heuristic == 'icu') {

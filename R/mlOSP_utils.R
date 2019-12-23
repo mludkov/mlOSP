@@ -332,12 +332,12 @@ cf.sur <- function(objMean, objSd, nugget)
 #' @param objMean: predicted mean response
 #' @param objSd: posterior standard deviation of the response
 #' @param nugget the noise variance to compute the ALC factor
-#' @details   compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd)
+#' @details   compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd^2)}
 #' @export
 cf.csur <- function(objMean, objSd, nugget)
 {
   a = pnorm(-abs(objMean)/objSd)  # normalized distance to zero contour
-  var_reduce <- objSd*(1-sqrt(nugget)/sqrt(nugget+objSd))  # reduction in posterior stdev from a new observation
+  var_reduce <- objSd*(1-sqrt(nugget)/sqrt(nugget+objSd^2))  # reduction in posterior stdev from a new observation
   newSigma <- (objSd - var_reduce)   # look-ahead variance
   a_new <- pnorm(-abs(objMean)/newSigma)   # new distance to zero-contour
   # difference between next-step ZC and current ZC
