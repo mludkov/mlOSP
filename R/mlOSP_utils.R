@@ -295,8 +295,9 @@ treeDivide.BW <- function(grid,curDim, model,test)
 ###############
 #' Expected Loss for Contour Finding
 #'
-#'  Compute expected loss using the optimal stopping loss function.
-#' @param obj  must be a DynaTree or a list with an sd field
+#' @title Compute expected loss using the optimal stopping loss function.
+#' @param objMean: predicted mean response
+#' @param objSd: posterior standard deviation of the response
 #' @export
 cf.el <- function(objMean,objSd)
 {
@@ -310,14 +311,13 @@ cf.el <- function(objMean,objSd)
 #' @title Compute EI for Contour Finding using the ZC-SUR formula
 #' @param objMean: predicted mean response
 #' @param objSd: posterior standard deviation of the response
-#' @details   compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd)
+#' @details   compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd^2)}
 #' @export
 cf.sur <- function(objMean, objSd, nugget)
 {
-  #plotinfo[[stp]] <<- cbind(X = as.vector(xs), fit = tmp_o$mean, se = tmp_o$sd, lower = tmp_o$lower95, upper = tmp_o$upper95)
   a = abs(objMean)/objSd  # normalized distance to zero contour
   M = objMean*pnorm(-a)-objSd*dnorm(-a)
-  var_reduce <- objSd*(1-sqrt(nugget)/sqrt(nugget+objSd))  # reduction in posterior stdev from a new observation
+  var_reduce <- objSd*(1-sqrt(nugget)/sqrt(nugget+objSd^2))  # reduction in posterior stdev from a new observation
   newSigma <- (objSd - var_reduce)   # look-ahead variance
   a_new <- abs(objMean)/newSigma   # new distance to zero-contour
   M_new = objMean*pnorm(-a_new)-newSigma*dnorm(-a_new)  # new ZC measure

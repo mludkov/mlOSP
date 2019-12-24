@@ -1,10 +1,11 @@
 #################
 #' @title Sequential design for optimal stopping
 #'
-#' @details Implements the EI strategy defined in model/al.heuristic. Calls lhs (library \pkg{tgp}).
+#' @details Implements the EI strategy defined in model/al.heuristic. Calls \code{lhs} from library \pkg{tgp}.
 #' Empirical losses are computed using \code{cf.el} function. The acquisition function is specified via
-#' \code{al.heuristic} which can be \code{sur} (Default), \code{csur}, \code{mcu} or \code{tmse}
-#' @param method: either \code{km} or \code{hetgp} to select the GP emulator to apply
+#' \code{al.heuristic} which can be \code{sur} (Default), \code{csur}, \code{smcu}, \code{amcu},
+#' \code{tmse} and \code{icu}
+#' @param method: one of \code{km}, \code{trainkm}, \code{homtp} or \code{hetgp} to select the GP emulator to apply
 #' @export
 #' @return a list containing:
 #' \itemize{
@@ -13,6 +14,7 @@
 #' \item \code{nsims} total number of 1-step sim.func calls
 #' \item \code{budget} -- number of sequential iterations per time-step
 #' \item \code{empLoss} --matrix of empirical losses (rows for time-steps, columns for iterations)
+#' \item \code{theta.fit} -- 3d array of estimated lengthscales (sorted by time-steps,iterations,dimensions-of-x)
 #' }
 osp.seq.design <- function(model,method="km")
 {
@@ -20,11 +22,15 @@ osp.seq.design <- function(model,method="km")
   M <- model$T/model$dt
   t.start <- Sys.time()
   cur.sim <- 0
+  if (is.null(model$al.heuristic)) 
+     model$al.heuristic <- "csur"
+  if (is.null(model$update.freq)) 
+    model$update.freq <- 10
 
   fits <- list()   # list of emulator objects at each step
   pilot.paths <- list()
   emp.loss <- array(0, dim=c(M,model$adaptive.grid.loop-model$init.size))
-  update.kernel.iters <- seq(0,model$adaptive.grid.loop,by=20)   # when to refit the whole GP
+  update.kernel.iters <- seq(0,model$adaptive.grid.loop,by=model$update.freq)   # when to refit the whole GP
 
   # set-up a skeleton to understand the distribution of X
   pilot.paths[[1]] <- model$sim.func( matrix(rep(model$x0[1:model$dim], 5*model$init.size),
@@ -93,11 +99,20 @@ osp.seq.design <- function(model,method="km")
     if (method == "km")
       fits[[i]] <- km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
                         noise.var=all.X[1:k,model$dim+2]/model$km.batch,
-                        control=list(trace=F), lower=rep(0.1,model$dim), covtype=model$covfamily,
+                        control=list(trace=F), lower=rep(0.1,model$dim), covtype=model$covfamily, 
+                        nugget.estim= TRUE, nugget=sqrt(mean(all.X[,model$dim+2])),
                         coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var)
-    if (method == "homtp")
+    if (method == "trainkm") {
+      fits[[i]] <- km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
+                      noise.var=all.X[1:k,model$dim+2]/model$km.batch, covtype=model$covfamily,
+                      control=list(trace=F), lower=rep(0.1,model$dim), upper=model$km.upper)
+      theta.fit[i,k-model$init.size+1,] <- coef(fits[[i]])$range
+    }
+    if (method == "homtp") {
       fits[[i]] <- hetGP::mleHomTP(X=init.grid, Z=all.X[1:k,model$dim+1],lower=rep(0.1,model$dim),upper=model$km.upper,
-                      covtype=model$covfamily, noiseControl=list(nu_bounds=c(2.01,4)))
+                      covtype=model$covfamily, noiseControl=list(nu_bounds=c(2.01,5)))
+      theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
+    }
     
     if (method== "hetgp") {
       big.payoff <- option.payoff(big.grid,model$K)
@@ -106,25 +121,21 @@ osp.seq.design <- function(model,method="km")
                                    lower = rep(0.1,model$dim), upper = model$km.upper,
                                    covtype=model$covfamily)
       theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
-      #browser()
     }
 
-    # active learning loop:
+    ##### active learning loop:
     add.more.sites <- TRUE; k <- K0 + 1
     # to do it longer for later points to minimize error build-up use: *(1 + i/M)
-    #for (k in (K0+1):round(model$adaptive.grid.loop))
     while (add.more.sites == TRUE)
     {
       # predict on the candidate grid. Need predictive GP mean, posterior GP variance and similation Stdev
-      if (method == "km") {
+      if (method == "km" | method == "trainkm") {
          pred.cands <- predict(fits[[i]],data.frame(x=ei.cands), type="UK")
          cand.mean <- pred.cands$mean
          cand.sd <- pred.cands$sd
          nug <- sqrt(mean(all.X[1:(k-1),model$dim+2])/model$km.batch)
       }
-      else {   # hetGP
-         #ei.cands <- lhs( model$cand.len, lhs.rect )  # from tgp package
-         #ei.cands <- ei.cands[ option.payoff( ei.cands,model$K) > 0,,drop=F]
+      else {   # hetGP/homTP
          pred.cands <- predict(x=ei.cands, object=fits[[i]])
          cand.mean <- pred.cands$mean
          cand.sd <- sqrt(pred.cands$sd2)
@@ -132,6 +143,7 @@ osp.seq.design <- function(model,method="km")
       }
       losses <- cf.el(cand.mean, cand.sd)
       
+      # Hard-coded log-normal density
       if (model$dim >= 2) {
         x.dens2 <- dlnorm( ei.cands[,1], meanlog=log(model$x0[1])+(model$r-model$div - 0.5*model$sigma[1]^2)*i*model$dt,
                         sdlog = model$sigma[1]*sqrt(i*model$dt) )
@@ -156,7 +168,7 @@ osp.seq.design <- function(model,method="km")
       if (model$al.heuristic == 'smcu')
         al.weights <- cf.smcu(cand.mean, cand.sd, model$ucb.gamma)
       if (model$al.heuristic == 'amcu') {
-        adaptive.gamma <- (quantile(cand.mean, 0.75) - quantile(cand.mean, 0.25))/mean(cand.sd)
+        gamma <- (quantile(cand.mean, 0.75) - quantile(cand.mean, 0.25))/mean(cand.sd)
         al.weights <- cf.smcu(cand.mean, cand.sd, adaptive.gamma)
       }
       if (model$al.heuristic == 'csur')
@@ -165,7 +177,7 @@ osp.seq.design <- function(model,method="km")
         kxprime <- cov_gen(X1 = fits[[i]]$X0, X2 = ei.cands, theta = fits[[i]]$theta, type = fits[[i]]$covtype)
         al.weights <- apply(ei.cands,1, crit_ICU, model=fits[[i]], thres = 0, Xref=ei.cands, 
                             w = x.dens2, preds = pred.cands, kxprime = kxprime)
-        #browser()
+
       }
       # multiply by weights based on the distribution of pilot paths
       dX_1 <- pilot.paths[[i]]; dX_2 <- ei.cands
@@ -207,25 +219,31 @@ osp.seq.design <- function(model,method="km")
            fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:k,1:model$dim]), response=data.frame(y=all.X[1:k,model$dim+1]),
                           noise.var=all.X[1:k,model$dim+2]/model$km.batch, coef.trend=0, coef.cov=model$km.cov,
                           coef.var=model$km.var, control=list(trace=F), lower=rep(0.1, model$dim),upper=model$km.upper)
+        if (method == "trainkm") {
+          fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:k,1:model$dim]), response=data.frame(y=all.X[1:k,model$dim+1]),
+                          noise.var=all.X[1:k,model$dim+2]/model$km.batch, control=list(trace=F), 
+                          lower=rep(0.1, model$dim),upper=model$km.upper)
+          theta.fit[i,k-model$init.size+1,] <- coef(fits[[i]])$range
+        }
         if (method == "hetgp") {
            fits[[i]] <- update(object=fits[[i]], Xnew=add.grid,Znew=fsim$payoff-immPayoff,method="mixed",
                                lower = rep(0.1,model$dim), upper=model$km.upper)
            theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
         }
         if (method == "homtp") {
-          fits[[i]] <- mleHomTP(X=all.X[1:k,1:model$dim], Z=all.X[1:k,model$dim+1],noiseControl=list(nu_bounds=c(2.01,4)),
+          fits[[i]] <- mleHomTP(X=all.X[1:k,1:model$dim], Z=all.X[1:k,model$dim+1],noiseControl=list(nu_bounds=c(2.01,5)),
                                  lower=rep(0.1,model$dim),upper=model$km.upper, covtype=model$covfamily)
           theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
         }
       }
       else {
-        if (method == "km")
+        if (method == "km" | method == "trainkm")
            fits[[i]] <- update(fits[[i]],newX=add.grid[1,,drop=F],newy=add.mean,
                                newnoise=add.var/model$km.batch,  cov.re=F)
         if (method == "hetgp")
            fits[[i]] <- update(object=fits[[i]], Xnew=add.grid, Znew=fsim$payoff-immPayoff, maxit = 0)
         if (method == "homtp")
-          fits[[i]] <- update(object=fits[[i]], Xnew=add.grid[1,,drop=F], Znew=add.mean, maxit = 0)
+           fits[[i]] <- update(object=fits[[i]], Xnew=add.grid[1,,drop=F], Znew=add.mean, maxit = 0)
       }
 
       # resample the candidate set
