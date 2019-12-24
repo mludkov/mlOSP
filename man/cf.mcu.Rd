@@ -12,7 +12,7 @@ cf.mcu(objMean, objSd)
 \item{objSd:}{posterior standard deviation of the response}
 }
 \description{
-MCU for Contour Finding
+MCU for Contour Finding. DEPRECATED.
 }
 \details{
 compute normalized distance to zero-contour |mu|/sd

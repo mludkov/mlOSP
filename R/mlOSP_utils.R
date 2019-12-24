@@ -346,7 +346,7 @@ cf.csur <- function(objMean, objSd, nugget)
 
 
 #####################
-#' MCU for Contour Finding
+#' MCU for Contour Finding. DEPRECATED.
 #'
 #' @title Maximum Contour Uncertainty criterion
 #' @param objMean: predicted mean response
@@ -359,7 +359,7 @@ cf.mcu <- function(objMean, objSd)
 }
 
 #####################
-#' straddle MCU with constant variance weight
+#' straddle MCU with a specified variance weight
 #'
 #' @title Straddle Maximum Contour Uncertainty criterion
 #' @param objMean: predicted mean response

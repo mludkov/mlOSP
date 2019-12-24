@@ -2,16 +2,16 @@
 % Please edit documentation in R/mlOSP_utils.R
 \name{cf.tMSE}
 \alias{cf.tMSE}
-\title{Maximum Contour Uncertainty criterion}
+\title{targeted Mean Squared Error criterion}
 \usage{
-cf.tMSE(objMean, objSd, seps = 0.05)
+cf.tMSE(objMean, objSd, seps = 0)
 }
 \arguments{
 \item{objMean:}{predicted mean response}
 
 \item{objSd:}{posterior standard deviation of the response}
 
-\item{seps:}{epsilon in the tMSE formula}
+\item{seps:}{epsilon in the tMSE formula. By default taken to be zero.}
 }
 \description{
 tMSE for Contour Finding

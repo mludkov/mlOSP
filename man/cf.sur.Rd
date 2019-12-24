@@ -14,3 +14,6 @@ cf.sur(objMean, objSd, nugget)
 \description{
 SUR for Contour Finding
 }
+\details{
+compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd^2)}
+}

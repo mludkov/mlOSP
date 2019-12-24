@@ -168,7 +168,7 @@ osp.seq.design <- function(model,method="km")
       if (model$al.heuristic == 'smcu')
         al.weights <- cf.smcu(cand.mean, cand.sd, model$ucb.gamma)
       if (model$al.heuristic == 'amcu') {
-        gamma <- (quantile(cand.mean, 0.75) - quantile(cand.mean, 0.25))/mean(cand.sd)
+        adaptive.gamma <- (quantile(cand.mean, 0.75) - quantile(cand.mean, 0.25))/mean(cand.sd)
         al.weights <- cf.smcu(cand.mean, cand.sd, adaptive.gamma)
       }
       if (model$al.heuristic == 'csur')
@@ -261,6 +261,7 @@ osp.seq.design <- function(model,method="km")
 }
 
 
+########################################
 #### Adaptive batching
 osp.batch.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0)
 {

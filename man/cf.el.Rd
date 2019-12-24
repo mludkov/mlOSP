@@ -2,13 +2,15 @@
 % Please edit documentation in R/mlOSP_utils.R
 \name{cf.el}
 \alias{cf.el}
-\title{Expected Loss for Contour Finding}
+\title{Compute expected loss using the optimal stopping loss function.}
 \usage{
 cf.el(objMean, objSd)
 }
 \arguments{
-\item{obj}{must be a DynaTree or a list with an sd field}
+\item{objMean:}{predicted mean response}
+
+\item{objSd:}{posterior standard deviation of the response}
 }
 \description{
-Compute expected loss using the optimal stopping loss function.
+Expected Loss for Contour Finding
 }
