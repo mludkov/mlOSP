@@ -31,45 +31,68 @@ abstract: This is a Mike test . . .
 ---
 
 ```{r setup, include=FALSE}
- knitr::opts_chunk$set(echo = TRUE, fig.path='figures/', dev=c('png', 'pdf'), dpi=100, fig.width=6.4, fig.height=3.6,cache=TRUE,warning=FALSE,message=FALSE,cache.path="C:/Downloads/")
+ knitr::opts_chunk$set(echo = TRUE, fig.path='figures/', dev=c('png', 'pdf'), dpi=100, fig.width=6.4, fig.height=3.6,cache=TRUE,warning=FALSE,message=FALSE)
 ```
 
-# Simulation Based Optimal Stopping and Beyond
+# Introduction
+
+We introduce \code{mlOSP}, a computational template for Machine Learning for Optimal Stopping Problems. The template is implemented in the `R` statistical environment and publicly available via a `GitHub` repository. Our template nests much of the existing literature on regression-based approaches to optimal stopping and through a unified numerical implementation allows for transparent and verifiable benchmarking of extant algorithms. Moreover, the modularity of the mlOSP framework offers abundant opportunities for new versions of RMC algorithms, with numerous ideas already implemented in the `R` package and presented below.
+
+
+## Simulation Based Optimal Stopping and Beyond
 
 Numerical resolution of optimal stopping problems has been an active area of research for more than 2 decades. Originally investigated in the context of American Option pricing, it has since metamorphosed into a field unto itself, with numerous wide-ranging applications and dozens of proposed approaches.
 
 A major strand, which is increasingly dominating the subject, are simulation-based methods that apply the Monte Carlo paradigm to Optimal Stopping. With its roots in 1990s, this framework remains without an agreed-upon name; we shall refer to it as Regression Monte Carlo (RMC). The main feature of RMC is its marriage of a probabilistic approach, namely direct reliance on the underlying stochastic state dynamics as part of the simulations, and statistical tools for approximating the quantities of interest, primarily the value and/or continuation functions. This combination of simulation and statistics brings scalability, flexibility in terms of underlying model assumptions and a vast arsenal of potential implementations. These benefits have translated into excellent performance which has made RMC popular both in the academic and practitioner (quantitative finance) communities. Indeed, in the opinion of the author, these developments can claim to be the most successful numerical strategy that emerged from Financial Mathematics. Dating back only about 20 years, they have now percolated down into standard Masters-level curriculum, and are increasingly utilized in cognate engineering and mathematical sciences domains. 
 
-Despite hundreds of journal publications addressing various variants of RMC, there remains a dearth of user-friendly benchmarks or unified overviews of the algorithms. In particular, to the author's knowledge, there is no R (or other free programming languages such as Python) package for RMC. One reason for this gap is the narrow focus of many research articles that tend to explore one small aspect of RMC and then illustrate their contributions on a small-scale, idiosyncratic example. 
+Despite hundreds of journal publications addressing various variants of RMC, there remains a dearth of user-friendly benchmarks or unified overviews of the algorithms. In particular, to the author's knowledge, there is no `R` (or other free programming languages such as `Python`) package for RMC (some small stand-alone versions are XXX). One reason for this gap is the narrow focus of many research articles that tend to explore one small aspect of RMC and then illustrate their contributions on a small-scale, idiosyncratic example. 
 
-In the present article, I aim to offer an algorithmic template for RMC, coupled with its implementation within R. This endevour is meant to be an ongoing project, offering one way to centralize and standardize RMC approaches, as they are proposed. In particular, the associated **mlOSP** library is currently in its Version 1.0 incarnation, with further (hopefully regular) updates to be fully expected.
+In the present article, I offer an algorithmic template for RMC, coupled with its implementation within R. This endevour is meant to be an ongoing project, offering one way to centralize and standardize RMC approaches, as they are proposed. In particular, the associated **mlOSP** library is currently in its Version 1.0 incarnation, with further (hopefully regular) updates to be fully expected.
 
-### Contributions and Outline
+## Contributions 
 
-This report offers a unified description of RMC via the underlying statistical concepts. Hence, we describe a *generic* RMC template that emphasizes the building blocks, rather than specific approaches. This perspective therefore aims to *nest* as many of existing works as possible, shedding light on the differences and the similarities between the numerous proposals.  To do so, we utilize as much as possible the language of statistics (in contrast to the language of finance, or of probability). In particular, we attempt to place RMC in the context of modern machine/statistical learning, highlighting such aspects as Design of Experiments, Simulation Device, and Sequential Learning. Through this angle, we naturally connect RMC with numerous alternative tools, twists, and extensions. Thus, we believe already the template is an important contribution, giving a new take on some quite-old ideas.
+`mlOSP` offers a unified description of RMC via the underlying statistical concepts. Hence, we describe a *generic* RMC template that emphasizes the building blocks, rather than specific approaches. This perspective therefore aims to *nest* as many of existing works as possible, shedding light on the differences and the similarities between the numerous proposals. Thus, the template itself should be viewed as a contribution, giving a new take on (quite) old ideas, and tying disparate extant presentations. 
 
-Second, we propose several new variants based on the above templated RMC. These include:
+A key motivation for building the template was to create transparent and verifiable benchmarks for RMC algorithms. While many published works contain detailed comparisons between the proposed RMC version and competing approaches, these comparisons are necessarily limited in scope and are often very difficult to reproduce. There are many challenges to creating a good benchmark:
+
+* RMC algorithms tend to have a slew of tuning parameters that might significantly affect performance (from number of simulations, to the precise choice of the regression specification);
+
+* One must define a complete problem instance, i.e. the payoff function, state dynamics, etc. While some test cases (see Model A and B below) have appeared repeatedly, there is no agreed upon benchmark portfolio to apply. Many algorithms are of course very sensitive to the dimensionality of the problem, the geometry of the value function, etc.
+
+* There are multiple metrics one could utilize to compare solution quantity across algorithms, including accuracy at a fixed simulation budget, accuracy at a fixed computation time, running time at fixed budget. Again, there is no single consistent set of such criteria to fall back upon;
+
+* The above metrics are heavily affected by the particular implementation, including the lower-level programming environment (say R vs C++), the machine running the benchmark, the operating system, etc.
+
+Due to all the above, the only way to create a "level playing field" for different algorithms is to bring them all under a single roof, coded side-by-side within a transparent environment. This is precisely what is achieved in `mlOSP`. In the companion software appendix, we provide the RMarkdown code that can be downloaded and run by any reader or end-user to fully reproduce our results, figures and tables. To our knowledge, this is the most comprehensive verifiable set of RMC benchmarks (some similar attempts are in StochOpt and Langrene). The R code also makes completely transparent our chosen set of fully specified problem instances, which would be useful for other researchers in the future.
+
+To specify `mlOSP', we utilize as much as possible the language of statistics (in contrast to the language of finance, or of probability). In particular, we attempt to place RMC in the context of modern machine/statistical learning, highlighting such aspects as Design of Experiments, Simulation Device, and Sequential Learning. Through this angle, we naturally connect RMC with numerous alternative tools, twists, and extensions. In particular, within the `mlOSP` template we propose and implement several new variants:
 
 * Adaptive (ie cross-validated) kernel regression using npreg and kernlab and svm
 
 * Varying the design size $N$ across time-steps
 
+* Multiple versions of generating space-filling experimental designs
+
+* A variety of sequential design heuristics, including with adaptive batching
+
 * hetGP/hetTP regression
 
-* implementation of swing option via ML methods
+* dynamic look-ahead simulators based on Egloff
 
-* sfjlksdjfl
 
-Third, we introduce a few benchmarks, i.e. fully specified problem instances, that would be useful for other researchers.
+## Organization
 
-The article is structured as an extended vignette and consists of two parts. The first part lays out the RMC template which underlies the **mlOSP** library. The template emphasizes the three pieces of RMC framework: stochastic simulation, experimental design, and statistical approximation. These pieces are modularized and can be fully mixed-and-matched within the core backward dynamic programming loop driving the algorithms. Section XXX briefly summarizes the variants of each module that have been implemented, and includes references to the original articles where these were proposed. For example, we provide more than 10 different methods for the regression module, ranging from kernel regression to piecewise linear regression to Gaussian process regression.
+The article is structured as an extended vignette and consists of three parts. The first part lays out the RMC template which underlies the **mlOSP** library. The template emphasizes the three pieces of RMC framework: stochastic simulation, experimental design, and statistical approximation. These pieces are modularized and can be fully mixed-and-matched within the core backward dynamic programming loop driving the algorithms. Section XXX briefly summarizes the variants of each module that have been implemented, and includes references to the original articles where these were proposed. For example, we provide more than 10 different methods for the regression module, ranging from kernel regression to piecewise linear regression to Gaussian process regression.
 
-The second part serves as a "User Guide" to mlOSP and illustrates how the template is implemented in the library. For ease of use, we provide about half-dozen top-level functions, whose usage is illustrated via code listings and the respective R output. The latter is organized as a RMarkdown document, enabling full reproduction by any reader who downlaods the **mlOSP** package. Simultaneously with illustrating *how* to use **mlOSP**, we also define several instances of OSP, including examples of Bermudan options in 1-, 2-, 3-, and 5-dimensions. By providing fully reproducible results on these instances, we hope to create a preliminary set of simple benchmarks that allow for a transparent, apples-to-apples comparison of different methods. As we discuss below, the numerous nuances that inevitably crop up when implementing RMC, frequently make such comparisons fraught, leading to a lack of consensus on what strategies are more efficient. 
+The second part serves as a "User Guide" to `mlOSP` and illustrates how the template is implemented in the library. For ease of use, we provide about half-dozen top-level functions, whose usage is illustrated via code listings and the respective R output. Simultaneously with illustrating *how* to use **mlOSP**, we also define several instances of OSP, including examples of Bermudan options in 1-, 2-, 3-, and 5-dimensions. In Section XX we proceed to benchmark, running 7 mlOSP solvers on 6 OSP instances. Beyond providing an apples-to-apples comparison of different solvers, we also showcase in more depth the impact of (i) simulation budget; (ii) regression specification; (iii) experimental design specification; (iv) simulator type. All these benchmarks are organized as a  companion RMarkdown document that is posted on GitHub, enabling full reproduction by any reader who downloads the **mlOSP** package. 
 
-The **mlOSP** library is meant to be extensible in the sense of offering a simple interface to define new OSP instances. This is achieved by utilizing, where possible, function pointers. For example, R already offers a standardized interface for regression, consisting of the *fit* and *predict* methods. **mlOSP** can then piggy-back on that interface, allowing the user to easily "hook-up" a new regression method for the regression module. Similarly, **mlOSP** can easily handle user-defined system dynamics, incorporated through constructing a new instance of path-simulator. 
-These features of **mlOSP** are illustrated at the end of the "User Guide" where we take examples from a couple of very recent papers and show how they can be embedded into the **mlOSP** template to facilitate comparison with existing ideas.
+By providing fully reproducible results on these instances, we hope to create a preliminary set of simple benchmarks that allow for a transparent, apples-to-apples comparison of different methods. As we discuss below, the numerous nuances that inevitably crop up when implementing RMC, frequently make such comparisons fraught, leading to a lack of consensus on what strategies are more efficient. [move later]
 
-## Optimal Stopping and RMC
+Finally, the third part of the paper in Section XX discusses extensions of our template. Indeed, a major goal is to build an interlocking collection of computational tools for decision-making under uncertainty. To this end, the mlOSP template admits generalizations in several directions. Section 5.1 discusses and showcases one such extension to handle multiple-stopping problems, illustrated with Bermudan Swing options. In a different vein, Section 5.2 goes through the steps to define a new OSP instance.  The **mlOSP** library is meant to be extensible in the sense of offering a simple interface to define new OSP instances.  These features of **mlOSP** are illustrated at the end of the "User Guide" where we take examples from a couple of very recent papers and show how they can be embedded into the **mlOSP** template to facilitate comparison with existing ideas.
+
+
+
+# Optimal Stopping and RMC
 
  An optimal stopping problem is described through two main ingredients: the state process and the reward function. We shall use $X$ to denote the state process, assumed to be a stochastic process indexed generically by the time index $t$. The reward function is $h(t,x)$ where the notation emphasizes the common possibility of the reward depending on time, e.g. due to discounting.
  
@@ -189,7 +212,7 @@ A replicated design allows to pre-average the corresponding $y$-values such as $
 In the examples below we explain the various design options offered in **mlOSP**, which is perhaps the best way for the user to fully understand this aspect.
 
 
-### Bringing it Back into Focus: Bermudan Option Pricing
+## Bringing it Back into Focus: Bermudan Option Pricing
 
 To offer the most intuitive context for using **mlOSP**, the vignette below focuses on OSP instances coming from Bermudan option pricing. In this context, we take the point of view of a buyer of an American option, which is a financial contract that gives the holder the ability (but not the obligation) to obtain a certain payoff, contingent on the underlying asset price. For example, an American Put allows its owner the right to exchange the asset for a pre-specified strike $K$, equivalent to the payoff $(K-x)_+$. The contract has an expiration date $T$, and the exercise frequency is taken to be $\Delta t$ (such as daily). 
 The state $X_t$ is then interpreted as the \emph{share price} of the asset at date $t$, which is naturally must be non-negative.
@@ -223,6 +246,10 @@ Numerous methods have since embellished and improved LS. One particularly large 
 
 The following user guide highlights the key aspects of mlOSP. It is intended to be fully reproducible, so that the reader can simply cut-and-paste (or download the RMarkdown document online) the R code. Since all the algorithms are intrinsically based on generating random outputs based on the underlying stochastic simulator, where possible we fix the RNG seeds. Depending on the particular machine and R version, the seeds might nevertheless lead to different results.
 
+
+This is achieved by utilizing, where possible, function pointers. For example, R already offers a standardized interface for regression, consisting of the *fit* and *predict* methods. **mlOSP** can then piggy-back on that interface, allowing the user to easily "hook-up" a new regression method for the regression module. Similarly, **mlOSP** can easily handle user-defined system dynamics, incorporated through constructing a new instance of path-simulator. 
+
+
 Load the necessary libraries (there are quite a few since we try many different regression methods)!
 ```{r results="hide",warning=FALSE,message=FALSE,error=FALSE}
 library(ks)
@@ -237,21 +264,15 @@ library(hetGP)
 library(kernlab)
 ```
 
-The seqOSP library has several principal schemes for constructing the emulators that describe the estimated stopping rule. The emulators are indexed by the underlying type of simulation *design* which most affects the implementation. We have:
+The workflow pipeline in mlOSP consists of:
 
-* osp.prob.design -- this is the original Longstaff Schwartz scheme that generates forward trajectories that are then re-used as the design sites. In our notation, this is a pure probabilistic design, without any replication. It is married to a variety of regression methods, both parametric and nonparametric. 
+(i) Defining the `model`, which is a list of parameters that determine the dynamics of $(X_t)$, the payoff function $h(t,x)$ and the tuning parameters determining the regression specification; `model` also contains function pointers that are used to simulate $(X_t)$, compute $h(t,x)$ and ....
 
-* osp.fixed.design -- the generic RMC scheme with a pre-specified/fixed (in the sense of not sequential) design. In particular the design can be replicated using *km.batch* parameter. This approach nests the osp.prob.design when km.batch=1 and the input.domain is fully specified. 
+(ii) Calling the appropriate top-level solver. The solvers are indexed by the underlying type of simulation *design* which most affects the implementation. They also use a top-level `method` argument that selects from a collection of implemented regression modules. Otherwise, all other parameters are passed through the above `model` argument. The solver returns a collection of fitted emulators (an `R` list containing the respective regression object for each time step), plus a few diagnostics;
 
-* osp.probDesign.piecewisebw -- this is the Bouchard Warin implementation of RMC that utilizes a hierarchical (piecewise) linear model based on an equi-probable partition of the forward trajectory sites. Since we have a ``quick-and-dirty'' recursive construction of the sub-domains, the fits from this function *cannot* be fed into a forward simulator. However, the function directly accepts a collection of test trajectories that are evaluated in parallel with the backward DP iteration. 
+(iii) Evaluating the obtained fitted emulators through an out-of-sample forward simulator via the `forward.sim.policy` command. The latter is a top-level function that can work with any of the implemented regression objects. Alternatively, one may also *visualize* the emulators through a few provided plotting commands.
 
-* mc.put.adaptree -- sequential RMC with *dynaTree* emulators
-
-* osp.seq.design --- sequential RMC with GP (ie Stochastic Kriging) emulators that are used to construct sequential design acquisition functions via the posterior emulator variance
-
-### 1D Toy Example
-
-We start with a simple 1-D Bermudan Put. The underlying dynamics are given by Geometric Brownian Motion
+The following example illustrates this workflow (it will be revisited as Model A below). We use a simple 1-D Bermudan Put where the underlying dynamics are given by Geometric Brownian Motion
 $$ dX_t = rX_t dt + \sigma X_t dW_t, \qquad X_0 = x_0.$$
 In the model specification below we have $r=0.06, T=1, \sigma=0.2$ and the option payoff is a Put $(K-X_t)_+$ with $K=40$. The exercise is possible 25 times before expiration, i.e $\Delta t = 0.04$. 
 
@@ -260,18 +281,18 @@ We hand-build a few designs that cover the in-the-money region $[25,40]$ using Q
 
 ```{r first-example}
 # a few prespecified designs
-grid1 <- c(30, 33:39)
-grid2 <- c(28, 30, seq(32.5, 39, by=0.5))
+#grid1 <- c(30, 33:39)
+#grid2 <- c(28, 30, seq(32.5, 39, by=0.5))
 grid3 <- sort(15*sobol(15)+25)
-grid4 <- sort(15*sobol(200)+25)
+#grid4 <- sort(15*sobol(200)+25)
 
 # specify the simulation model, the payoff, and the emulator setup
-model1 <- c(final.runs=0, K=40,x0=40,sigma=0.2,r=0.06,div=0,T=1,dt=0.04,dim=1,
-            sim.func=sim.gbm, lhs.rect=c(25,40),init.size=15,km.cov=4,km.var=1,
-            cand.len=1000,look.ahead=1,pilot.nsims=0,km.batch=200)
+model1 <- c(final.runs=0, K=40, option.func=put.payoff,
+            x0=40,sigma=0.2,r=0.06,div=0,T=1,dt=0.04,dim=1, sim.func=sim.gbm,
+            lhs.rect=c(25,40),init.size=15,km.cov=4,km.var=1, cand.len=1000,
+            look.ahead=1,pilot.nsims=0,km.batch=200,covfamily="matern5_2")
 
 put1d.model <- model1
-put1d.model$covfamily="matern5_2"
 put1d.model$N <- 500
 option.payoff <- put.payoff
 
@@ -292,6 +313,25 @@ lines(check.x, km.pred$upper95, lty=2,col=myCol)
 abline(h=0,lty=2)
 rug(grid3, quiet=TRUE)
 ```
+
+
+### Key functions
+
+The mlOSP package has several principal schemes for constructing the emulators that describe the estimated stopping rule. The emulators are 
+We have:
+
+* osp.prob.design -- this is the original Longstaff Schwartz scheme that generates forward trajectories that are then re-used as the design sites. In our notation, this is a pure probabilistic design, without any replication. It is married to a variety of regression methods, both parametric and nonparametric. 
+
+* osp.fixed.design -- the generic RMC scheme with a pre-specified/fixed (in the sense of not sequential) design. In particular the design can be replicated using *km.batch* parameter. This approach nests the osp.prob.design when km.batch=1 and the input.domain is fully specified. 
+
+* osp.probDesign.piecewisebw -- this is the Bouchard Warin implementation of RMC that utilizes a hierarchical (piecewise) linear model based on an equi-probable partition of the forward trajectory sites. Since we have a ``quick-and-dirty'' recursive construction of the sub-domains, the fits from this function *cannot* be fed into a forward simulator. However, the function directly accepts a collection of test trajectories that are evaluated in parallel with the backward DP iteration. 
+
+* mc.put.adaptree -- sequential RMC with *dynaTree* emulators
+
+* osp.seq.design --- sequential RMC with GP (ie Stochastic Kriging) emulators that are used to construct sequential design acquisition functions via the posterior emulator variance
+
+
+## Different types of regression emulators
 
 ### 2D Average Put example
 Next we try a 2D example where things get a bit more interesting. Here the payoff is the basket average Put,
@@ -360,12 +400,87 @@ print( c(mean(oos.lm$payoff), mean(oos.km$payoff)) )
 plot(oos.lm$payoff, oos.km$payoff)
 ```
 
-## Different types of regression emulators
 
 The first function is **osp.prob.design**. This is  classical RMC that builds a design using a forward simulation of state trajectories.
-Its main input is the *method* which can take a large range of regression methods. Specifics of each regression are controlled through specifying *required* respective model parameters.
+Its main input is the *method* which can take a large range of regression methods. Specifics of each regression are controlled through specifying *required* respective model parameters. The code snippet below reuses the 1D model to instead apply a **smooth.spline** (smoothing cubic spline) regressor. The latter requires specifying the number of knots. Only 2 lines of code are necessary to make this modification to the above OSP instance.
 
+```{r 1d-spline}
+put1d.model$nk=20  # number of knots for the smoothing spline
+spl.eml.1dput <- osp.prob.design(30000,put1d.model,subset=1:10000,method="spline")
+```
+
+The second function **osp.probDesign.piecewisebw** runs the[@BouchardWarin10] algorithm . This is a variant of the Longstaff-Schwartz scheme [@LS] utilizing piecewise linear regressions. The regresion sub-domains are picked adaptively based on equi-probable partition of the generated trajectories. The partition uses *model.nChildren* bins in each dimension. 
+
+The third function is  **osp.fixed.design**. It has three key parameters: `input.domain` which controls the construction of the design, `km.batch` that controls the replication amount and type which controls the regression method. Because the design is now user-specified, its size can vary step-by-step. The package also allows to vary the replication amounts. Several options are available to build a space-filling design, in particular in terms of 
+generating the bounding hyper-rectangle that defines the effective input space:
+
+(i) Directly utilizing  a user-defined simulation design. For example, we can use a Sobole QMC sequence to place $x^{1:N}_{t}$. 
+
+(ii) Secondly, one can construct the bounding rectangle through some pilot simulations of $X_{0:T}$. Here *input.dom=0.02* makes the LHS space-fill a box between the 2nd and 98th percentiles of the `pilot.nsim=1000` pilot trajectories at each time step. The pilot trajectories act as "scaffolding," organically expanding the input domain as $t$ grows.
+If we set *input.dom=-1* then the full range of the pilot scenarios is used. Here we space-fill using a Halton QMC sequence.
+
+(iii) ....
+
+We may also make the design size $N_t$ to change over $t$ which is entered by making the *model.N* parameter a vector.
+
+### Regression Methods:
+
+* `lm`: linear model, specified through the set of user-provided basis functions, defined via `bases` parameter;
+
+* `rf`: random forest model, specified through the number of trees `rf.ntree` and `rf.maxnode`
+
+* `mars`: multivariate adaptive regression spline model from the `earth` package, specified through `put1d.model$earth.deg = 2`; `put1d.model$earth.nk = 100`; `put1d.model$earth.thresh = 1e-8` We set the degree to be 2, so that bases consist of linear/quadratic hinge functions.
+
+* `spline`: smoothing splines (only in 1D)
+
+* `km`: Gaussian process model from the DiceKriging package with fixed GP hyperparameters
+
+* `trainkm`: trained GP model
+
+* `hetgp`: The classical GP emulator assumes homoskedastic Gaussian simulation noise. To tackle the strong heteroskedasticity encountered in our context, we have utilized above the Stochastic Kriging (SK) approach [@ankenman2010stochastic]. SK utilizes a replicated design to locally estimate $\sigma^2(x) = \mathbb{Var}(\epsilon(x))$. This estimation is done empirically via the classical MC variance estimator based on the batch of $r$ pathwise rewards starting at the same $x$:
+$$ \hat{\sigma^2(x)} = \frac{1}{r-1} \sum_{i=1}^r (y^i - \bar{y})^2.$$
+To be reliable, this strategy necessitates using large batch sizes $r$ (called **n.reps** in mlOSP); in practice we find that $r \gg 20$ is necessary. For example, in the previous example we used $n.reps = 100$.  An alternative framework directly aims to learn $\sigma^2(\cdot)$ via a second spatial model that is jointly inferred with the standard mean response. This has been recently implemented [@binois2016practical] in the **hetGP** package that we now illustrate. The main advantage of using **hetGP** is the ability to lower the replication counts.
+
+* `homtp`
+
+* RVM kernel regression from **kernlab**. 
+
+* `np`:   A different kernel package is *np*. Below we use it with a Epanechnikov order-4 kernel and local-linear regression. The bandwidth is estimated using least squares cross-validation (default **npreg** option)## Sequential Designs
+
+### Sequential design
+The function **osp.seq.design** generates sequential designs. It start with an initial design of size init.size and grows it until adaptive.grid.loop size. Below we start with 30 well-placed design sites, and add an additional 120, for a total of 150, with 20 replications each. The designs are augmented based on an *acquisition function*, specified via the **al.heuristic** parameter. Currently, 5 different acquisition functions are implemented, see [Binois et al 2018]: 
+
+  * acquisition function ("smcu", "tmse", "sur", "csur", "amcu")
+  
+  
+Note that the regression emulator, must be currently of GP-type to provide the needed posterior variance ("km","hetgp", "homtp")
+
+```{r sequential-km, fig.width=5, fig.height=3,fig.cap="Sequential Design using SUR acquisition function"}
+require(laGP)  # needed for distance function 
+sob30 <- randtoolbox::sobol(55, d=2)
+sob30 <- sob30[ which( sob30[,1] + sob30[,2] <= 1) ,]  # a lot are on the diagonal
+sob30 <- 25+30*sob30
+ 
+option.payoff <- put.payoff
+model2d$adaptive.grid.loop <- 150  # final design size -- a total of 3000
+model2d$km.batch <- 20
+model2d$init.size <- 30   # initial design size
+model2d$init.grid <- sob30
+model2d$al.heuristic <- "sur"
+model2d$covfamily <- "matern5_2"
+put2d.sur.km <- osp.seq.design(model2d)
+oos.sur.km <- forward.sim.policy( mygr, MM, put2d.sur.km$fit, model2d)
+print(mean(oos.sur.km$payoff))
+plt.2d.surf(put2d.sur.km$fit[[18]],x=seq(26,48,len=101),y=seq(26,48,len=101),
+            sub=sprintf("%4f",mean(oos.sur.km$payoff)))
+```
+
+
+#########################
+# Old stuff
 First we consider a 1D example  with **smooth.spline**.  Note the syntax: we use a total of 30000 trajectories, of which the first 10000 are reserved for testing, and the last 20000 is the training set. We then also run a **randomForest**.
+
+**osp.probDesign.piecewisebw** function runs the Bouchard-Warin algorithm [@BouchardWarin10]. This is a variant of the Longstaff-Schwartz scheme [@LS] utilizing piecewise linear regressions. The regresion sub-domains are picked adaptively based on equi-probable partition of the generated trajectories. The partition uses *model.nChildren* bins in each dimension, so for the 2d problem below, taking nChildren=10 and $N=40000$ implies having 100 sub-domains with 400 trajectories in each. As can be seen, the role of nChildren is very crucial for algorithm performance.
 
 
 ```{r 1d-spline-RF}
@@ -386,7 +501,7 @@ mars.eml.1dput <- osp.prob.design(30000,put1d.model,subset=1:10000,method="earth
 
 ## Space-filling Batched designs
 
-The second function, which is the workhorse of seqOSP, is **osp.fixed.design**. It has three key parameters: input.domain which controls the construction of the design, km.batch that controls the replication amount and type which controls the regression method. Because the design is now user-specified, its size can vary step-by-step. The package also allows to vary the replication amounts.
+The second function, which is the workhorse of mlOSP, is **osp.fixed.design**. It has three key parameters: `input.domain` which controls the construction of the design, `km.batch` that controls the replication amount and type which controls the regression method. Because the design is now user-specified, its size can vary step-by-step. The package also allows to vary the replication amounts.
 
 We proceed to an overview of different ways to build a space-filling design. The main issue is how to
 generate the bounding hyper-rectangle that defines the effective input space. The package provides several ways to do so.

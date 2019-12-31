@@ -24,8 +24,8 @@ a list containing:
 Sequential design for optimal stopping
 }
 \details{
-Implements the EI strategy defined in model/al.heuristic. Calls \code{lhs} from library \pkg{tgp}.
+Implements the EI strategy defined in model/ei.func. Calls \code{lhs} from library \pkg{tgp}.
 Empirical losses are computed using \code{cf.el} function. The acquisition function is specified via
-\code{al.heuristic} which can be \code{sur} (Default), \code{csur}, \code{smcu}, \code{amcu},
-\code{tmse} and \code{icu}
+\code{ei.func} which can be \code{csur} (Default), \code{sur}, \code{smcu}, \code{amcu},
+\code{tmse} and \code{icu}.
 }

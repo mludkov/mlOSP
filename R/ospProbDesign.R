@@ -2,7 +2,7 @@
 #' RMC using probabilistic design: backpropagation along fixed set of paths (a la Longstaff-Schwartz)
 #' All designs are kept in memory
 #' @title Longstaff-Schwartz algorithm with a variety of regression methods
-#' @param model defines the simulator and reward model, with the two main model hooks being option.payoff (plus parameters)
+#' @param model defines the simulator and reward model, with the two main model hooks being payoff.func (plus parameters)
 #' and sim.func (plus parameters)
 #' @param N is the number of paths
 #' @param subset To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
@@ -20,6 +20,7 @@
 #'  \code{earth.thresh} params
 #'  \item rvm: relevance vector machine from \pkg{kernlab} package. Optional \code{rvm.kernel}
 #'  model parameter to decide which kernel family to utilize. Default kernel is rbfdot
+#'  \item npreg: kernel regression using \pkg{npreg}
 #'  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions (+ constant)
 #'  }
 #' @export
@@ -36,14 +37,26 @@
 #'  Works with a probabilistic design that requires storing all paths in memory. Specifying \code{subset}
 #'  allows to compute in parallel with the original computation an out-of-sample estimate of the value function
 #'  
-#'  Calls \code{option.payoff}, so the latter must be set prior to calling
+#'  Calls \code{model$payoff.func}, so the latter must be set prior to calling
 #'  Also needs model$dt and model$r for discounting
 #'  
 #'  Calls \code{model$sim.func} to generate forward paths
 #'  
 #'  Emulator is trained only on paths where payoffs are strictly positive
+#' @examples
+#' set.seed(1)
+#' model2d <- list( seq.design.size=100,look.ahead=1,init.size=100,
+#'  ei.func='sur',cand.len=1000, batch.nrep=100,
+#'  K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
+#'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff)
+#'  bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
+#'  model2d$bases <- bas22
+#'  prob.lm <- osp.prob.design(30000,model2d,method="lm",subset=1:15000)
+#'  prob.lm$p
+#'  # yields [1] 1.440918 1.482422
 
-###############################
+
+#------------
 osp.prob.design <- function(N,model,subset=1:N,method="lm")
 {
   M <- model$T/model$dt
@@ -67,7 +80,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
     grids[[i]] <- model$sim.func( grids[[i-1]], model, model$dt)
 
   # initialize at T
-  contValue <- exp(-model$r*model$dt)*option.payoff( grids[[M]], model$K)
+  contValue <- exp(-model$r*model$dt)*model$payoff.func( grids[[M]], model)
   tau <- rep(model$T, N)
   t.start <- Sys.time()
 
@@ -76,7 +89,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
   for (i in (M-1):1)
   {
     # forward predict
-    immPayoff <- option.payoff(grids[[i]],model$K)
+    immPayoff <- model$payoff.func(grids[[i]],model)
     
     # train only on in-the-money
     c.train <- train[which(immPayoff[train] > 0)]
@@ -129,8 +142,26 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
           rvmk <- "rbfdot"
       else
           rvmk <- model$rvm.kernel
-      rvModel <- rvm(x=grids[[i]][c.train], y=yVal,kernel=rvmk)
-      timingValue <- predict(rvModel, new=grids[[i]])
+      all.models[[i]] <- rvm(x=grids[[i]][c.train], y=yVal,kernel=rvmk)
+      timingValue <- predict(all.models[[i]], new=grids[[i]])
+    }
+    if (method == "npreg") {
+        if (is.null(model$np.kertype))
+           kertype = "gaussian"
+        else
+          kertype <- model$np.kertype
+        if (is.null(model$np.regtype))
+           regtype <- "lc"
+        else
+           regtype <- model$np.regtype
+        if (is.null(model$np.kerorder))
+          kerorder <- 2
+        else
+          kerorder <- model$np.kerorder
+
+        all.models[[i]] <- npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+                           regtype=regtype, ckertype=kertype,ckerorder=kerorder)
+        timingValue <- predict(all.models[[i]],new=grids[[i]])
     }
 
     # paths on which stop right now
@@ -141,10 +172,16 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
     # else continue and discount
     contValue <- exp(-model$r*model$dt)*contValue
   }
+  test <- NULL
 
   # in/sample and out-of-sample average at x0
-  price <- c(mean(contValue[train]),mean(contValue[subset]))
-  print(sprintf("in-sample v_0 %3f; and out-of-sample: %3f", price[1], price[2]))
+  if (length(subset) < N & length(subset) > 0) {
+      price <- c(mean(contValue[train]),mean(contValue[subset]))
+      print(sprintf("in-sample v_0 %3f; and out-of-sample: %3f", price[1], price[2]))
+      test <- contValue[subset]
+  }
+  else
+    price <- mean(contValue)
 
   # returns a list containing
   # fit are all the models generated at each time-step, stored as a list
@@ -152,7 +189,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
   # val are the in-sample pathwise rewards
   # test are the out-of-sample pathwise rewards
   # timeElapsed: total running time
-  return( list(fit=all.models,p=price, val=contValue[train], test=contValue[subset],
+  return( list(fit=all.models,p=price, val=contValue[train], test=test,
                timeElapsed=Sys.time()-t.start))
 }
 
@@ -183,7 +220,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \item lm: linear model from \pkg{stats}
 #' }
 #' @param inTheMoney.thresh: which paths are kept, out-of-the-money is dropped.
-#' Defines threshold in terms of \code{option.payoff}
+#' Defines threshold in terms of \code{model$payoff.func}
 #' @return a list containing:
 #' \itemize{
 #' \item \code{fit} a list containing all the models generated at each time-step. \code{fit[[1]]} is the emulator
@@ -193,14 +230,25 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \item \code{p}: the final price (2-vector for in/out-of-sample)
 #' \item \code{timeElapsed} (based on \code{Sys.time})
 #' }
-#' @details The design can be replicated through \code{km.batch} model parameter. Replication allows to use
+#' @details The design can be replicated through \code{batch.nrep} model parameter. Replication allows to use
 #' nonparametric techniques which would be too expensive otherwise, in particular LOESS, GP and RVM.
 #' All designs are restricted to in-the-money region, see \code{inTheMoney.thresh} parameter (modify at your own risk)
 #' Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, ie the
 #' method only builds the emulators. Thus, to obtain an actual estimate of the value
 #' combine with \code{\link{forward.sim.policy}}
 #' @export
-osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0, t.interp=0, stop.freq=model$dt)
+#' 
+#' @examples
+#' set.seed(1)
+#' model2d <- list( seq.design.size=100,look.ahead=1,init.size=100,
+#'  ei.func='sur',cand.len=1000, batch.nrep=100,
+#'  K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
+#'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff)
+#'  bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
+#'  model2d$bases <- bas22
+#'  prob.lm <- osp.prob.design(30000,model2d,method="lm",subset=1:15000)
+#'  prob.lm$price
+osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0, stop.freq=model$dt)
 {
   M <- model$T/model$dt
   t.start <- Sys.time()
@@ -219,8 +267,9 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
   grids[[1]] <- grids[[3]]
   cur.sim <- model$pilot.nsims
   }
+ 
 
-  ############ step back in time
+  #----- step back in time
   design.size <- rep(0,M)
 
   for (i in (M-1):1) {
@@ -231,12 +280,12 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       design.size[i] <- model$N[i]
 
     #figure out batch size
-    if (is.null(model$km.batch))
+    if (is.null(model$batch.nrep))
      n.reps <- 1
-    else if (length(model$km.batch) == 1)
-      n.reps <- model$km.batch
+    else if (length(model$batch.nrep) == 1)
+      n.reps <- model$batch.nrep
     else
-      n.reps <- model$km.batch[i]
+      n.reps <- model$batch.nrep[i]
 
     if (is.null(input.domain))  {   # empirical design using simulated pilot paths
       init.grid <- grids[[i]]
@@ -258,6 +307,11 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
         }
       }
       else my.domain <- input.domain  #  user-specified box
+      
+      if (is.null(model$min.lengthscale) )
+        model$min.lengthscale <- diff(my.domain)/100
+      if (is.null(model$max.lengthscale) )
+        model$max.lengthscale <- diff(my.domain)
 
       # now choose how to space-fill
       if (is.null(model$qmc.method)) {
@@ -276,7 +330,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       design.size[i] <- nrow(init.grid)
     }
 
-    init.grid <- init.grid[ option.payoff(init.grid, model$K) > inTheMoney.thresh,,drop=F]
+    init.grid <- init.grid[ model$payoff.func(init.grid, model) > inTheMoney.thresh,,drop=F]
 
     design.size[i] <- dim(init.grid)[1]
     all.X <- matrix( rep(0, (model$dim+2)*design.size[i]), ncol=model$dim+2)
@@ -286,7 +340,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 
     fsim <- forward.sim.policy( big.grid, M-i,fits[i:M],model,offset=0)
     #fsim <- policy.payoff( big.grid,(M-i)*model$dt/stop.freq,fits[i:M],model,offset=0,path.dt=stop.freq,interp=t.interp)
-    immPayoff <- option.payoff( init.grid, model$K)
+    immPayoff <- model$payoff.func( init.grid, model)
     cur.sim <- cur.sim + fsim$nsims
 
     # pre-averaged mean/variance
@@ -301,31 +355,32 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
     if (n.reps > 10 & method == "km")
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
                                    noise.var=all.X[,model$dim+2]/n.reps, control=list(trace=F),
-                                   coef.trend=0,coef.cov=model$km.cov, coef.var=model$km.var, covtype=model$covfamily)
+                                   coef.trend=0,coef.cov=model$km.cov, coef.var=model$km.var, covtype=model$kernel.family)
     else if (method == "km")  # manually estimate the nugget for small batches
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
-                                   control=list(trace=F), lower=rep(0.1,model$dim), coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var,
-                                   nugget.estim=TRUE, nugget=sqrt(mean(all.X[,model$dim+2])), covtype=model$covfamily)
+                                   control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
+                                   coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var,
+                                   nugget.estim=TRUE, nugget=sqrt(mean(all.X[,model$dim+2])), covtype=model$kernel.family)
     else if (method =="trainkm")
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
-                                   control=list(trace=F), lower=rep(0.1,model$dim), upper=model$km.upper,
-                                   noise.var=all.X[,model$dim+2]/n.reps, covtype=model$covfamily)
+                                   control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
+                                   noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
 
     else if (n.reps < 10 & method == "lagp")  # laGP library implementation
       fits[[i]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
                                 d=list(mle=FALSE, start=model$km.cov), g=list(start=1, mle=TRUE))
     else if(method =="hetgp") {
-      big.payoff <- option.payoff(big.grid,model$K)
+      big.payoff <- model$payoff.func(big.grid,model)
       hetData <- find_reps(big.grid, fsim$payoff-big.payoff)
       fits[[i]] <- hetGP::mleHetGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
-                                   lower = rep(0.1,model$dim), upper = model$km.upper, covtype=model$covfamily)
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
       #ehtPred <- predict(x=check.x, object=hetModel)
     }
     else if (method =="homgp") {
-      big.payoff <- option.payoff(big.grid,model$K)
+      big.payoff <- model$payoff.func(big.grid,model)
       hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
       fits[[i]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
-                                   lower = rep(0.1,model$dim), upper = model$km.upper, covtype=model$covfamily)
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
     }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
       fits[[i]] <- smooth.spline(x=init.grid,y=all.X[,2],knots=model$nk)
@@ -393,12 +448,12 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
       design.size[i] <- model$N[i]
     
     #figure out batch size
-    if (is.null(model$km.batch))
+    if (is.null(model$batch.nrep))
       n.reps <- 1
-    else if (length(model$km.batch) == 1)
-      n.reps <- model$km.batch
+    else if (length(model$batch.nrep) == 1)
+      n.reps <- model$batch.nrep
     else
-      n.reps <- model$km.batch[i]
+      n.reps <- model$batch.nrep[i]
     
     if (is.null(input.domain))  {   # empirical design using simulated pilot paths
       init.grid <- grids[[i]]
@@ -438,7 +493,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
       design.size[i] <- nrow(init.grid)
     }
     
-    init.grid <- init.grid[ option.payoff(init.grid, model$K) > inTheMoney.thresh,,drop=F]
+    init.grid <- init.grid[ model$payoff.func(init.grid, model) > inTheMoney.thresh,,drop=F]
     
     design.size[i] <- dim(init.grid)[1]
     all.X <- matrix( rep(0, (model$dim+2)*design.size[i]), ncol=model$dim+2)
@@ -465,11 +520,11 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
     if (method == "km")
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
                                    noise.var=all.X[,model$dim+2]/n.reps, control=list(trace=F),
-                                   coef.trend=0,coef.cov=model$km.cov, coef.var=model$km.var, covtype=model$covfamily)
+                                   coef.trend=0,coef.cov=model$km.cov, coef.var=model$km.var, covtype=model$kernel.family)
     else if (method =="trainkm")
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
-                                   control=list(trace=F), lower=rep(0.1,model$dim), upper=model$km.upper,
-                                   noise.var=all.X[,model$dim+2]/n.reps, covtype=model$covfamily)
+                                   control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
+                                   noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
     
     else if (n.reps < 10 & method == "lagp")  # laGP library implementation
       fits[[i]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
@@ -477,13 +532,13 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
     else if(method =="hetgp") {
       hetData <- find_reps(big.grid, qValue)
       fits[[i]] <- hetGP::mleHetGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
-                                   lower = rep(0.1,model$dim), upper = model$km.upper, covtype=model$covfamily)
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
       #ehtPred <- predict(x=check.x, object=hetModel)
     }
     else if (method =="homgp") {
       hetData <- hetGP::find_reps(big.grid, qValue)
       fits[[i]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
-                                   lower = rep(0.1,model$dim), upper = model$km.upper, covtype=model$covfamily)
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
     }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
       fits[[i]] <- smooth.spline(x=init.grid,y=all.X[,2],knots=model$nk)
@@ -521,7 +576,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #' RMC using TvR along a fixed set of paths
 #' All designs are kept in memory
 #' @title Tsitsiklis van Roy algorithm with a variety of regression methods
-#' @param model defines the simulator and reward model, with the two main model hooks being option.payoff (plus parameters)
+#' @param model defines the simulator and reward model, with the two main model hooks being payoff.func (plus parameters)
 #' and sim.func (plus parameters)
 #' @param N is the number of paths
 #' @param subset To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
@@ -555,7 +610,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #'  Works with a probabilistic design that requires storing all paths in memory. Specifying \code{subset}
 #'  allows to compute in parallel with the original computation an out-of-sample estimate of the value function
 #'  
-#'  Calls \code{option.payoff}, so the latter must be set prior to calling
+#'  Calls \code{model$payoff.func}, so the latter must be set prior to calling
 #'  Also needs model$dt and model$r for discounting
 #'  
 #'  Calls \code{model$sim.func} to generate forward paths
@@ -586,7 +641,7 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
     grids[[i]] <- model$sim.func( grids[[i-1]], model, model$dt)
   
   # initialize at T
-  contValue <- exp(-model$r*model$dt)*option.payoff( grids[[M]], model$K)
+  contValue <- exp(-model$r*model$dt)*model$payoff.func( grids[[M]], model)
   tau <- rep(model$T, N)
   t.start <- Sys.time()
   
@@ -595,7 +650,7 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
   for (i in (M-1):1)
   {
     # forward predict
-    immPayoff <- option.payoff(grids[[i]],model$K)
+    immPayoff <- model$payoff.func(grids[[i]],model)
     
     yVal <- contValue-immPayoff
     
@@ -657,8 +712,14 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
   }
   
   # in/sample and out-of-sample average at x0
-  price <- c(mean(contValue[train]),mean(contValue[subset]))
-  print(sprintf("in-sample v_0 %3f; and out-of-sample: %3f", price[1], price[2]))
+  test <- NULL
+  if (length(subset) < N & length(subset) > 0) {
+    price <- c(mean(contValue[train]),mean(contValue[subset]))
+    print(sprintf("in-sample v_0 %3f; and out-of-sample: %3f", price[1], price[2]))
+    test <- contValue[subset]
+  }
+  else
+    price <- mean(contValue)
   
   # returns a list containing
   # fit are all the models generated at each time-step, stored as a list
@@ -666,6 +727,6 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
   # val are the in-sample pathwise rewards
   # test are the out-of-sample pathwise rewards
   # timeElapsed: total running time
-  return( list(fit=all.models,p=price, val=contValue[train], test=contValue[subset],
+  return( list(fit=all.models,p=price, val=contValue[train], test=test,
                timeElapsed=Sys.time()-t.start))
 }

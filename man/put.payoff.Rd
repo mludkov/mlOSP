@@ -3,9 +3,9 @@
 \name{put.payoff}
 \alias{put.payoff}
 \title{Arithmetic basket Put for d-dim x
- @ title American Put payoff}
+ @title American Put payoff}
 \usage{
-put.payoff(x, K = 40)
+put.payoff(x, model)
 }
 \arguments{
 \item{x}{is a vector of asset prices}
@@ -14,7 +14,7 @@ put.payoff(x, K = 40)
 }
 \description{
 Arithmetic basket Put for d-dim x
- @ title American Put payoff
+ @title American Put payoff
 }
 \details{
 in more than 1D, the prices are averaged and maxed with zero.

@@ -9,7 +9,7 @@ osp.tvr(N, model, subset = 1:N, method = "lm")
 \arguments{
 \item{N}{is the number of paths}
 
-\item{model}{defines the simulator and reward model, with the two main model hooks being option.payoff (plus parameters)
+\item{model}{defines the simulator and reward model, with the two main model hooks being payoff.func (plus parameters)
 and sim.func (plus parameters)}
 
 \item{subset}{To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
@@ -51,7 +51,7 @@ All designs are kept in memory
 Works with a probabilistic design that requires storing all paths in memory. Specifying \code{subset}
  allows to compute in parallel with the original computation an out-of-sample estimate of the value function
  
- Calls \code{option.payoff}, so the latter must be set prior to calling
+ Calls \code{model$payoff.func}, so the latter must be set prior to calling
  Also needs model$dt and model$r for discounting
  
  Calls \code{model$sim.func} to generate forward paths

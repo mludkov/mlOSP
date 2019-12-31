@@ -2,17 +2,15 @@
 % Please edit documentation in R/payoffs.R
 \name{call.payoff}
 \alias{call.payoff}
-\title{American Call payoff}
+\title{Arithmetic average Call payoff}
 \usage{
-call.payoff(x, K = 40)
+call.payoff(x, model)
 }
 \arguments{
 \item{x}{is a vector of asset prices}
-
-\item{K}{is the strike}
 }
 \description{
-American Call payoff
+Call
 }
 \details{
 arithmetic basket for d-dim x)

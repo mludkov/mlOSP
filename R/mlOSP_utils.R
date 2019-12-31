@@ -36,7 +36,7 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
   
   contNdx <- 1:nrow(curX)
   i <- 1
-  payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*option.payoff( curX[contNdx,,drop=F], model$K)
+  payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
   
   # main loop forward
   while (i < (M+(use.qv==TRUE)) & length(contNdx) > 0) {
@@ -103,7 +103,7 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
     if (is(x, "list") )  # stored list of paths
       curX[contNdx,] <- x[[i]][contNdx,,drop=F]
     # payoff for next timestep -- used for terminal payoff at i=M
-    payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*option.payoff( curX[contNdx,,drop=F], model$K)
+    payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
   }
   for (i in 2:(model$look.ahead))   # payoff for a trajectory starting at x^n_{t+i} which was still alive then
     fvalue[[i]] <- payoff[ save.ndx[[i]] ]*exp((i-1)*model$dt*model$r)
@@ -406,7 +406,7 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
   
   contNdx <- 1:nrow(curX)
   i <- 1
-  payoff[contNdx]  <- exp(-(i)*path.dt*model$r)*option.payoff( curX[contNdx,,drop=F], model$K)
+  payoff[contNdx]  <- exp(-(i)*path.dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
   
   # main loop forward
   while (i < (M+(use.qv==TRUE)) & length(contNdx) > 0) {
@@ -463,7 +463,7 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
         if (i > (length(fit)-(1-offset)-1)*model$dt/path.dt ) # (model$T-model$dt)/path.dt) 
         {
           #rule <- predict(x=curX[contNdx[in.the.money],,drop=F], object=fit[[fit.ndx]])$mean
-          rule3 <- exp(-(i)*path.dt*model$r)*option.payoff( curX[contNdx[in.the.money],,drop=F], model$K)
+          rule3 <- exp(-(i)*path.dt*model$r)*model$payoff.func( curX[contNdx[in.the.money],,drop=F])
           weight <- (i*path.dt - model$T+model$dt)/model$dt
           rule <- (rule3+ rule)*(1-weight) - rule3
           
@@ -495,7 +495,7 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
     if (is(x, "list") )  # stored list of paths
       curX[contNdx,] <- x[[i]][contNdx,,drop=F]
     # payoff for next timestep -- used for terminal payoff at i=M
-    payoff[contNdx]  <- exp(-(i)*path.dt*model$r)*option.payoff( curX[contNdx,,drop=F], model$K)
+    payoff[contNdx]  <- exp(-(i)*path.dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
   }
   if (model$look.ahead > 1)
     for (i in 2:(model$look.ahead))   # payoff for a trajectory starting at x^n_{t+i} which was still alive then
@@ -594,7 +594,7 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1)
     if (is(x, "list") )  # stored list of paths
       curX[contNdx,] <- x[[i]][contNdx,,drop=F]
     # payoff for next timestep -- used for terminal payoff at i=M
-    payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*option.payoff( curX[contNdx,,drop=F], model$K)
+    payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
   }
   for (i in 2:(model$look.ahead))   # payoff for a trajectory starting at x^n_{t+i} which was still alive then
     fvalue[[i]] <- payoff[ save.ndx[[i]] ]*exp((i-1)*model$dt*model$r)

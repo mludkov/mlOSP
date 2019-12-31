@@ -9,7 +9,7 @@ osp.prob.design(N, model, subset = 1:N, method = "lm")
 \arguments{
 \item{N}{is the number of paths}
 
-\item{model}{defines the simulator and reward model, with the two main model hooks being option.payoff (plus parameters)
+\item{model}{defines the simulator and reward model, with the two main model hooks being payoff.func (plus parameters)
 and sim.func (plus parameters)}
 
 \item{subset}{To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
@@ -26,6 +26,7 @@ By default everything is in-sample}
  \code{earth.thresh} params
  \item rvm: relevance vector machine from \pkg{kernlab} package. Optional \code{rvm.kernel}
  model parameter to decide which kernel family to utilize. Default kernel is rbfdot
+ \item npreg: kernel regression using \pkg{npreg}
  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions (+ constant)
  }}
 
@@ -51,10 +52,21 @@ All designs are kept in memory
 Works with a probabilistic design that requires storing all paths in memory. Specifying \code{subset}
  allows to compute in parallel with the original computation an out-of-sample estimate of the value function
  
- Calls \code{option.payoff}, so the latter must be set prior to calling
+ Calls \code{model$payoff.func}, so the latter must be set prior to calling
  Also needs model$dt and model$r for discounting
  
  Calls \code{model$sim.func} to generate forward paths
  
  Emulator is trained only on paths where payoffs are strictly positive
+}
+\examples{
+set.seed(1)
+model2d <- list( seq.design.size=100,look.ahead=1,init.size=100,
+ ei.func='sur',cand.len=1000, batch.nrep=100,
+ K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
+ T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff)
+ bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
+ model2d$bases <- bas22
+ prob.lm <- osp.prob.design(30000,model2d,method="lm",subset=1:15000)
+ prob.lm$price
 }

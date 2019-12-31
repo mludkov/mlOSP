@@ -5,7 +5,7 @@
 \title{Generic dynamic emulation with a non-sequential design}
 \usage{
 osp.fixed.design(model, input.domain = NULL, method = "km",
-  inTheMoney.thresh = 0, t.interp = 0, stop.freq = model$dt)
+  inTheMoney.thresh = 0, stop.freq = model$dt)
 }
 \arguments{
 \item{input.domain:}{the domain of the emulator. Several options are available. Default in \code{NULL}
@@ -32,7 +32,7 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 }}
 
 \item{inTheMoney.thresh:}{which paths are kept, out-of-the-money is dropped.
-Defines threshold in terms of \code{option.payoff}}
+Defines threshold in terms of \code{model$payoff.func}}
 }
 \value{
 a list containing:
@@ -49,10 +49,21 @@ at \eqn{t=\Delta t}, the last one is \code{fit[[M-1]]} which is emulator for \eq
 Batched non-adaptive design with a variety of regression methods
 }
 \details{
-The design can be replicated through \code{km.batch} model parameter. Replication allows to use
+The design can be replicated through \code{batch.nrep} model parameter. Replication allows to use
 nonparametric techniques which would be too expensive otherwise, in particular LOESS, GP and RVM.
 All designs are restricted to in-the-money region, see \code{inTheMoney.thresh} parameter (modify at your own risk)
 Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, ie the
 method only builds the emulators. Thus, to obtain an actual estimate of the value
 combine with \code{\link{forward.sim.policy}}
+}
+\examples{
+set.seed(1)
+model2d <- list( seq.design.size=100,look.ahead=1,init.size=100,
+ ei.func='sur',cand.len=1000, batch.nrep=100,
+ K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
+ T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff)
+ bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
+ model2d$bases <- bas22
+ prob.lm <- osp.prob.design(30000,model2d,method="lm",subset=1:15000)
+ prob.lm$price
 }

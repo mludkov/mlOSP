@@ -10,7 +10,13 @@ osp.probDesign.piecewisebw(N, model, test.paths = NULL, verb = 0)
 \item{N}{is the number of paths}
 
 \item{model}{must contain the following fields: \code{T, dt, dim, nChildren},
-      \code{sim.func, x0, r}
+\code{sim.func, x0, r}}
+
+\item{verb}{if specified, produces plots of the 1-dim fit every verb time-steps
+[default is zero]}
+
+\item{test.paths:}{out of sample paths to obtain a price estimate
+     
  @return a list with the following fields:
 \code{price} is the scalar optimal reward;
 \code{tau} is a vector of stopping times over in-sample paths;
@@ -23,11 +29,10 @@ Uses the Bouchard-Warin recursive partitioning to created N-d trees
 for local linear regression fits
 }
 \examples{
-option.payoff <-sv.put
 set.seed(1)
 modelSV5 <- list(K=100,x0=c(90, log(0.35)),r=0.0225,div=0,sigma=1,
    T=50/252,dt=1/252,svAlpha=0.015,svEpsY=1,svVol=3,svRho=-0.03,svMean=2.95,
-   eulerDt=1/2520, dim=2,sim.func=sim.expOU.sv,nChildren=10)
+   eulerDt=1/2520, dim=2,sim.func=sim.expOU.sv,nChildren=10,payoff.func=sv.put.payoff)
 putPr <- osp.probDesign.piecewisebw(20000,modelSV5)
 putPr$price
   \\# get [1] 17.30111

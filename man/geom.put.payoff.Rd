@@ -4,13 +4,11 @@
 \alias{geom.put.payoff}
 \title{geometric basket Put}
 \usage{
-geom.put.payoff(x, K = 40)
+geom.put.payoff(x, model)
 }
 \arguments{
 \item{x}{is a vector of asset prices}
-
-\item{K}{is the strike}
 }
 \description{
-geometric basket Put
+Geometric Put
 }

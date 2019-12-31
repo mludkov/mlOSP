@@ -4,13 +4,11 @@
 \alias{digital.put.payoff}
 \title{geometric digital Put payoff}
 \usage{
-digital.put.payoff(x, K = 10)
+digital.put.payoff(x, model)
 }
 \arguments{
 \item{x}{is a vector of asset prices}
-
-\item{K}{is the strike}
 }
 \description{
-geometric digital Put payoff
+Digital Put
 }

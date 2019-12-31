@@ -6,6 +6,10 @@
 #' @param N     is the number of paths
 #' @param model must contain the following fields: \code{T, dt, dim, nChildren},
 #'        \code{sim.func, x0, r}
+#' @param verb if specified, produces plots of the 1-dim fit every verb time-steps
+#' [default is zero]
+#' @param test.paths: out of sample paths to obtain a price estimate
+#'       
 #'   @return a list with the following fields:
 #'  \code{price} is the scalar optimal reward;
 #'  \code{tau} is a vector of stopping times over in-sample paths;
@@ -14,11 +18,10 @@
 #'  \code{timeElapsed} timing information based on \code{Sys.time}
 #'
 #' @examples
-#' option.payoff <-sv.put
 #' set.seed(1)
 #' modelSV5 <- list(K=100,x0=c(90, log(0.35)),r=0.0225,div=0,sigma=1,
 #'    T=50/252,dt=1/252,svAlpha=0.015,svEpsY=1,svVol=3,svRho=-0.03,svMean=2.95,
-#'    eulerDt=1/2520, dim=2,sim.func=sim.expOU.sv,nChildren=10)
+#'    eulerDt=1/2520, dim=2,sim.func=sim.expOU.sv,nChildren=10,payoff.func=sv.put.payoff)
 #' putPr <- osp.probDesign.piecewisebw(20000,modelSV5)
 #' putPr$price
 #'   \# get [1] 17.30111
@@ -54,10 +57,10 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
   }
   
   # initialize the continuation values/stopping times
-  contValue <- exp(-model$r*model$dt)*option.payoff( grids[[M]], model$K)
+  contValue <- exp(-model$r*model$dt)*model$payoff.func( grids[[M]], model)
   tau <- rep(model$T, N)
   meanPrice[M] <- mean(contValue)  # average price along paths (for debugging purpose)
-  test.value <- exp(-model$r*model$dt)*option.payoff(test.paths[[M]], model$K)
+  test.value <- exp(-model$r*model$dt)*model$payoff.func(test.paths[[M]], model)
   
   ###### Main loop: Backward step in time
   # Estimate T(t,x)
@@ -76,16 +79,16 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
                                    model, test=test.paths[[i]])
     
     # compute T(t,x) = C(t,x) - h(x)
-    immPayoff <- option.payoff(grids[[i]],model$K)
+    immPayoff <- model$payoff.func(grids[[i]],model)
     timingValue <- preds[[i]]$in.sample - immPayoff
     
     # same on the out-of-sample paths
-    test.payoff <- option.payoff(test.paths[[i]],model$K)
+    test.payoff <- model$payoff.func(test.paths[[i]],model)
     test.tv <- preds[[i]]$out.sample - test.payoff
     
-    # figure out the boundary in 1d
+    # figure out the Put boundary in 1d
     if (model$dim == 1) {
-      stop.ndx <- which( timingValue < 0 & grids[[i]][,1] < model$K)
+      stop.ndx <- which( timingValue < 0 & model$payoff.func(grids[[i]], model) > 0)
       bnd[i,] <- c(max( grids[[i]][stop.ndx,1]),quantile( grids[[i]][stop.ndx,1], 0.98), length(stop.ndx)/N )
       if (verb > 0 & i > 1)
         if (i %% verb == 1)  {
