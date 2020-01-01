@@ -21,6 +21,9 @@
 #' internally from \code{\link{osp.fixed.design}}
 forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE)
 {
+  if (is.null(model$look.ahead)) 
+      model$look.ahead <- 1
+  
   nsim <- 0
   if (is(x, "matrix") | is(x, "numeric") ) {
     curX <- model$sim.func( x,model,model$dt)
@@ -36,7 +39,7 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
   
   contNdx <- 1:nrow(curX)
   i <- 1
-  payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
+  payoff[contNdx]  <- exp(-model$dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
   
   # main loop forward
   while (i < (M+(use.qv==TRUE)) & length(contNdx) > 0) {
@@ -119,22 +122,21 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
 ########################################################################################
 
 ######
-#' two-dimensional image+contour plot
+#' Two-dimensional raster+contour+point plot
 #' @title Visualize 2D emulator + stopping region
-#' @details Uses the quilt.plot command from \pkg{fields}
+#' @details Uses the raster plot from \pkg{ggplot2}
 #'
 #' @param x,y locations to use for the \code{predict()} functions. Default is a 200x200 fine grid.
 #' Passed to \code{expand.grid}
 #' @param fit can be any of the types supported by \code{\link{forward.sim.policy}}
 #' @param show.var -- if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
-#' This only works for \code{km} and \code{het/homGP} objects
-#' @param only.contour -- just add the zero-contour, no quilt.plot
-#' @param ub to create an upper bound to see the zero-contour better
-#' @param .. -- pass additional options to \code{quilt.plot}
+#' This only works for \code{km} and \code{het/homGP/homTP} objects
+#' @param only.contour -- just add the zero-contour, no raster plot (uses \code{contour}, no ggplot)
+#' @param ub clip the surface with an upper bound  to see the zero-contour better
 #' @param contour.col (default is "red") -- color of the zero contour
 #' @export
 plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6,
-                         show.var=FALSE, only.contour=FALSE, contour.col="red",...)
+                         show.var=FALSE, only.contour=FALSE, contour.col="red")
 {
   gr <- expand.grid(x=x,y=y)
   
@@ -162,20 +164,43 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6
   if (class(fit) == "npregression")
     obj <- predict(fit,exdat=cbind(gr$x,gr$y))
   
-  
-  if (only.contour== FALSE)
-    quilt.plot(gr$x, gr$y, pmin(ub,obj),xlim=range(x),ylim=range(y),
-               xlab=expression(X[t]^1), ylab=expression(X[t]^2),cex.lab=1.2, cex.axis=1.1,...)
-  imx <- as.image(x=cbind(gr$x,gr$y),obj,nr=100,nc=100)
-  contour(imx$x,imx$y,imx$z,levels=0,add=T,drawlab=F,lwd=2,col=contour.col)
-  if (class(fit)=="dynaTree") { #is.null(fit@X) == F & is(fit,"km")==F) {
-    kk <- kde2d(fit$X[,1],fit$X[,2],lims=c(range(x),range(y)))
-    contour(kk$x, kk$y, kk$z,nlev=12,lwd=0.5,lty=2,drawlab=F,add=T,col=contour.col)
+  if (only.contour==TRUE) {
+    imx <- as.image(x=cbind(gr$x,gr$y),obj,nr=100,nc=100)
+    contour(imx$x,imx$y,imx$z,levels=0,add=T,drawlab=F,lwd=2,col=contour.col)
+    g1 <- ggplot( data.frame(x=gr$x, y=gr$y,z=obj)) + 
+      geom_contour(breaks=0,color=contour.col,aes(x,y,z=z),size=1.4) +
+      scale_x_continuous(expand=c(0,0),limits=range(x)) + 
+      scale_y_continuous(expand=c(0,0),limits=range(y)) +
+      labs(x=expression(X[t]^1),y=expression(X[t]^2))
   }
+  else {
+    g1 <- ggplot( data.frame(x=gr$x, y=gr$y,z=obj)) + 
+      scale_x_continuous(expand=c(0,0),limits=range(x)) + 
+      scale_y_continuous(expand=c(0,0),limits=range(y)) +
+      labs(x=expression(X[t]^1),y=expression(X[t]^2)) +
+      geom_raster(aes(x,y,fill=z)) + 
+      geom_contour(breaks=0,color=contour.col,aes(x,y,z=z),size=1.4) +
+      theme(legend.title=element_blank(),legend.key.width = unit(0.35,"cm"),
+            legend.text = element_text(size = 11), legend.spacing.x = unit(0.2, 'cm'),
+            legend.key.height = unit(1,"cm"), axis.text=element_text(size=11),
+            axis.title=element_text(size=12,face="bold") ) +
+      scale_fill_gradientn(colours = tim.colors(64)) 
+  }
+  #  quilt.plot(gr$x, gr$y, pmin(ub,obj),xlim=range(x),ylim=range(y),
+  #             xlab=expression(X[t]^1), ylab=expression(X[t]^2),cex.lab=1.2, cex.axis=1.1,...)
+  #imx <- as.image(x=cbind(gr$x,gr$y),obj,nr=100,nc=100)
+  #contour(imx$x,imx$y,imx$z,levels=0,add=T,drawlab=F,lwd=2,col=contour.col)
+  #if (class(fit)=="dynaTree") { #is.null(fit@X) == F & is(fit,"km")==F) {
+  #  kk <- kde2d(fit$X[,1],fit$X[,2],lims=c(range(x),range(y)))
+  #  contour(kk$x, kk$y, kk$z,nlev=12,lwd=0.5,lty=2,drawlab=F,add=T,col=contour.col)
+  #}
   if (is(fit,"km") & (only.contour== FALSE))
-    points( fit@X, col="orange", pch=19)
+    g1 <- g1 + geom_point(data=data.frame(xx=fit@X[,1],yy=fit@X[,2]),color="orange", aes(xx,yy), size=2)
   if( (class(fit)=="hetGP" | class(fit)=="homGP" | class(fit) == "homTP") & (only.contour== FALSE))
-    points(fit$X0, col="orange", pch=19)
+    g1 <- g1 + geom_point(data=data.frame(xx=fit$X0[,1],yy=fit$X0[,2]),color="orange", aes(xx,yy), size=2)
+    
+  return(g1)
+ 
 }
 
 ################################

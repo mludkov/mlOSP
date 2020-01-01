@@ -411,7 +411,7 @@ osp.batch.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
     }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
-      fits[[i]] <- smooth.spline(x=init.grid,y=all.X[,2],knots=model$nk)
+      fits[[i]] <- smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
     else if (method == "rvm") {
       if (is.null(model$rvm.kernel))
         rvmk <- "rbfdot"

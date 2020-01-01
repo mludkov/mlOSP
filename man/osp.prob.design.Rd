@@ -68,5 +68,6 @@ model2d <- list( seq.design.size=100,look.ahead=1,init.size=100,
  bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
  model2d$bases <- bas22
  prob.lm <- osp.prob.design(30000,model2d,method="lm",subset=1:15000)
- prob.lm$price
+ prob.lm$p
+ # yields [1] 1.440918 1.482422
 }
