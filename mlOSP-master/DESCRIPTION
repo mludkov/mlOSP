@@ -1,0 +1,12 @@
+Package: mlOSP 
+Title: Regression Monte Carlo Algorithms for Optimal Stopping 
+Version: 0.3
+Authors@R: person("Mike", "Ludkovski", email = "ludkovski@pstat.ucsb.edu", role = c("aut", "cre"))
+Maintainer: Mike Ludkovski <ludkovski@pstat.ucsb.edu> 
+Description: A suite of regression Monte Carlo algorithms. Includes both static and sequential designs. We implement the original Longstaff-Schwartz and Tsitsiklis-van Roy algorithms, as well as machine learning approaches that explicitly capture the underlying experimental designs. The mlOSP template then allows to mix and match the choice of the regression method, the experimental design and the stochastic simulator. The library directly accepts function hooks for the option payoff and the path generation. Key functions are osp.prob.design (original LSM), osp.fixed.design (a variety of space-filling or user-specified designs, generally assumed to be batched), osp.seq.design (sequential designs using a collection of pre-specified Expected Improvement Criteria). Also implements the Bouchard-Warin adaptive partitioning with linear regression (osp.design.piecewisebw). Work partially supported by NSF-1521743.
+Depends: R (>= 3.5.1) 
+License: What license is it under? 
+LazyData: true 
+Suggests: knitr, rmarkdown 
+VignetteBuilder: knitr 
+RoxygenNote: 7.0.2

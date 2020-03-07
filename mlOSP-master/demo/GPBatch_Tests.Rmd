@@ -1,0 +1,254 @@
+---
+title: "Tests for Batch GP"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ks)
+library(fields) # for plotting purposes, use quilt.plot in 2D
+library(mlOSP)
+library(DiceKriging)
+library(tgp)  # use lhs from there
+library(randtoolbox)  # use sobol and halton QMC sequences
+library(hetGP)
+library(laGP)
+library(ggplot2)
+library(pander)
+data("int_2d")
+data("int300_3d")
+```
+
+```{r}
+model2d <- list(x0 = rep(40,2),K=40,sigma=rep(0.2,2),r=0.06,div=0,T=1,dt=0.04,dim=2,sim.func=sim.gbm, payoff.func=put.payoff)
+MM <- (model2d$T/model2d$dt)
+model2d$pilot.nsims <- 1000
+model2d$look.ahead <- 1
+model2d$cand.len <- 1000
+model2d$max.lengthscale <- c(20,20)
+model2d$min.lengthscale <- c(0.2,0.2)
+model2d$init.size <- 20   # initial design size
+model2d$init.grid <- int_2d
+model2d$tmse.eps <- 0
+
+model2d$ucb.gamma <- 1.96
+
+model2d$seq.design.size <- 100
+model2d$batch.nrep <- 20
+```
+
+
+Function to run macroreplications
+```{r test-model}
+test.mlosp.batch.model <- function(test.set,model,method,batch,nReps,my.seed=101){
+  model$batch.heuristic <- batch
+   oos.payoffs <- array(0, dim=c(dim(test.set[[1]])[1],nReps))
+   for (j in 1:nReps) {
+      oos.obj <- osp.seq.batch.design(model,method=method)
+      oos.payoffs[,j] <- forward.sim.policy( test.set, length(test.set) - 1, oos.obj$fit, model)$payoff
+   }
+   return( oos.payoffs)
+}
+```
+
+## Two-dim basket put with homTP
+```{r testing-homtp2d, message=FALSE, warning=FALSE}
+# load the 2d test set and int_2d which are the initial designs
+NN <- 16000
+MM <- (model2d$T/model2d$dt)
+set.seed(101)
+mygr <- list()
+mygr[[1]] <- model2d$sim.func( matrix(rep(model2d$x0, NN), nrow=NN, byrow=T),
+                               model2d, model2d$dt)
+for (i in 2:(MM+1)) {
+  mygr[[i]] <- model2d$sim.func( mygr[[i-1]], model2d, model2d$dt)
+}
+
+model2d$init.size <- 10   # initial design size
+model2d$init.grid <- int_2d
+
+model2d$tmse.eps <- 0
+model2d$kernel.family <- "Gaussian"
+model2d$ucb.gamma <- 1.96
+model2d$update.freq <- 5
+nReps <- 25
+
+model2d$seq.design.size <- 100
+model2d$batch.nrep <- 20
+model2d$r.cand =c(20,30,40,50,60, 80, 120, 160)
+
+model2d$ei.func <- "amcu"
+
+#### Homtp + FB
+oos.obj.fb.tp.2d <- test.mlosp.batch.model(mygr,model2d,method="homtp",batch ="fb",nReps=nReps,my.seed=101)
+
+#### Homtp + RB
+oos.obj.rb.tp.2d <- test.mlosp.batch.model(mygr,model2d,method="homtp",batch ="rb",nReps=nReps,my.seed=101)
+
+#### Homtp + MLB
+oos.obj.mlb.tp.2d <- test.mlosp.batch.model(mygr,model2d,method="homtp",batch ="mlb",nReps=nReps,my.seed=101)
+
+#### Homtp + ADSA
+oos.obj.adsa.tp.2d <- test.mlosp.batch.model(mygr,model2d,method="homtp",batch ="adsa",nReps=nReps,my.seed=101)
+
+#### Homtp + DDSA
+oos.obj.ddsa.tp.2d <- test.mlosp.batch.model(mygr,model2d,method="homtp",batch ="ddsa",nReps=nReps,my.seed=101)
+
+#### Homtp + ABSUR
+model2d$ei.func <- 'absur'
+oos.obj.absur.tp.2d <- test.mlosp.batch.model(mygr,model2d,method="homtp",batch ="absur",nReps=nReps,my.seed=101)
+```
+
+## Two-dim basket put with hetGP
+```{r testing-hetgp2d, message=FALSE, warning=FALSE}
+model2d$kernel.family <- 'Gaussian'
+model2d$ei.func <- "amcu"
+
+#### Hetgp + FB
+oos.obj.fb.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="fb",nReps=nReps,my.seed=101)
+
+#### Hetgp + RB
+oos.obj.rb.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="rb",nReps=nReps,my.seed=101)
+
+#### Hetgp + MLB
+oos.obj.mlb.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="mlb",nReps=nReps,my.seed=101)
+
+#### Hetgp + ADSA
+oos.obj.adsa.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="adsa",nReps=nReps,my.seed=101)
+
+#### Hetgp + DDSA
+oos.obj.ddsa.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="ddsa",nReps=nReps,my.seed=101)
+
+#### Hetgp + ABSUR
+model2d$ei.func <- 'absur'
+oos.obj.absur.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="absur",nReps=nReps,my.seed=101)# model2d$kernel.family <- 'Gaussian'
+model2d$ei.func <- "amcu"
+
+#### Hetgp + FB
+oos.obj.fb.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="fb",nReps=nReps,my.seed=101)
+
+#### Hetgp + RB
+oos.obj.rb.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="rb",nReps=nReps,my.seed=101)
+
+#### Hetgp + MLB
+oos.obj.mlb.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="mlb",nReps=nReps,my.seed=101)
+
+#### Hetgp + ADSA
+oos.obj.adsa.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="adsa",nReps=nReps,my.seed=101)
+
+#### Hetgp + DDSA
+oos.obj.ddsa.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="ddsa",nReps=nReps,my.seed=101)
+
+#### Hetgp + ABSUR
+model2d$ei.func <- 'absur'
+oos.obj.absur.hetgp.2d <- test.mlosp.batch.model(mygr,model2d,method="hetgp",batch ="absur",nReps=nReps,my.seed=101)
+```
+
+### Results for 2D basket put
+```{r results-basketput, message=FALSE, warning=FALSE}
+results2d <- matrix(rep(0, 12), nrow = 2)
+results2d[1,] <- c(mean(oos.obj.fb.tp.2d), mean(oos.obj.rb.tp.2d), mean(oos.obj.mlb.tp.2d), mean(oos.obj.adsa.tp.2d), mean(oos.obj.ddsa.tp.2d), mean(oos.obj.absur.tp.2d))
+
+results2d[2,] <- c(mean(oos.obj.fb.hetgp.2d), mean(oos.obj.rb.hetgp.2d), mean(oos.obj.mlb.hetgp.2d), mean(oos.obj.adsa.hetgp.2d), mean(oos.obj.ddsa.hetgp.2d), mean(oos.obj.absur.hetgp.2d))
+
+results2d <- data.frame(results2d)
+colnames(results2d) <- c("FB", "RB", "MLB", "ADSA", "DDSA", "ABSUR")
+rownames(results2d) <- c("homTP", "hetGP")
+pander(results2d, style = 'rmarkdown')
+```
+
+## Three-dim max call with homtp 
+
+```{r testing-maxcallpars, message=FALSE, warning=FALSE}
+call3d.params <- list(look.ahead=1,final.runs=0,cand.len=1000,km.var=20,km.cov=c(12.5,12.5,12.5), ucb.gamma = 1.96)
+
+# Also in Andersen Broadie (MS'04), Table 2 p. 1230
+model3d <- c(call3d.params, nChildren=5, rf.ntree=200, list(K=100,r=0.05,div=0.1, sigma=rep(0.2,3),T=3, dt=1/3,
+  x0=rep(90,3),dim=3, sim.func=sim.gbm),N=1000,pilot.nsims=100, update.freq=5)
+model3d$payoff.func <- maxi.call.payoff
+set.seed(101)
+mygr3 <- list()
+NN <- 200000
+MM <- (model3d$T/model3d$dt)
+mygr3[[1]] <- model3d$sim.func( matrix(rep(model3d$x0, NN), nrow=NN, byrow=T),
+                               model3d, model3d$dt)
+for (i in 2:(MM+1)) {
+  mygr3[[i]] <- model3d$sim.func( mygr3[[i-1]], model3d, model3d$dt)
+}
+
+model3d$init.size <- 300   # initial design size
+model3d$init.grid <- int300_3d
+model3d$tmse.eps <- 0
+model3d$max.lengthscale <- c(40,40,40)
+
+model3d$kernel.family <- "Gaussian"
+model3d$ucb.gamma <- 1.96
+model3d$update.freq <- 5
+nReps <- 2
+
+model3d$seq.design.size <- 1000
+model3d$batch.nrep <- 30
+model3d$r.cand <- c(30, 40, 50, 80, 160, 240, 320, 480, 640)
+model3d$ei.func <- "amcu"
+
+```
+
+```{r testing-homtp3d, message=FALSE, warning=FALSE}
+
+#### Homtp + FB
+oos.obj.fb.tp.3d <- test.mlosp.batch.model(mygr3,model3d,method="homtp",batch ="fb",nReps=nReps,my.seed=101)
+
+#### Homtp + RB
+oos.obj.rb.tp.3d <- test.mlosp.batch.model(mygr3,model3d,method="homtp",batch ="rb",nReps=nReps,my.seed=101)
+
+#### Homtp + MLB
+oos.obj.mlb.tp.3d <- test.mlosp.batch.model(mygr3,model3d,method="homtp",batch ="mlb",nReps=nReps,my.seed=101)
+
+#### Homtp + ADSA
+oos.obj.adsa.tp.3d <- test.mlosp.batch.model(mygr3,model3d,method="homtp",batch ="adsa",nReps=nReps,my.seed=101)
+
+#### Homtp + DDSA
+oos.obj.ddsa.tp.3d <- test.mlosp.batch.model(mygr3,model3d,method="homtp",batch ="ddsa",nReps=nReps,my.seed=101)
+
+#### Homtp + ABSUR
+model3d$ei.func <- 'absur'
+oos.obj.absur.tp.3d <- test.mlosp.batch.model(mygr3,model3d,method="homtp",batch ="absur",nReps=nReps,my.seed=101)
+```
+
+## Three-dim max call with hetGP
+```{r testing-hetgp3d, message=FALSE, warning=FALSE}
+model3d$kernel.family <- 'Gaussian'
+model3d$ei.func <- "amcu"
+
+#### Hetgp + FB
+oos.obj.fb.hetgp.3d <- test.mlosp.batch.model(mygr3,model3d,method="hetgp",batch ="fb",nReps=nReps,my.seed=101)
+
+#### Hetgp + RB
+oos.obj.rb.hetgp.3d <- test.mlosp.batch.model(mygr3,model3d,method="hetgp",batch ="rb",nReps=nReps,my.seed=101)
+
+#### Hetgp + MLB
+oos.obj.mlb.hetgp.3d <- test.mlosp.batch.model(mygr3,model3d,method="hetgp",batch ="mlb",nReps=nReps,my.seed=101)
+
+#### Hetgp + ADSA
+oos.obj.adsa.hetgp.3d <- test.mlosp.batch.model(mygr3,model3d,method="hetgp",batch ="adsa",nReps=nReps,my.seed=101)
+
+#### Hetgp + DDSA
+oos.obj.ddsa.hetgp.3d <- test.mlosp.batch.model(mygr3,model3d,method="hetgp",batch ="ddsa",nReps=nReps,my.seed=101)
+
+#### Hetgp + ABSUR
+model2d$ei.func <- 'absur'
+oos.obj.absur.hetgp.3d <- test.mlosp.batch.model(mygr3,model3d,method="hetgp",batch ="absur",nReps=nReps,my.seed=101)
+```
+
+### Results for 3D max call
+```{r results-maxcall, message=FALSE, warning=FALSE}
+results3d <- matrix(rep(0, 12), nrow = 2)
+results3d[1,] <- c(mean(oos.obj.fb.tp.3d), mean(oos.obj.rb.tp.3d), mean(oos.obj.mlb.tp.3d), mean(oos.obj.adsa.tp.3d), mean(oos.obj.ddsa.tp.3d), mean(oos.obj.absur.tp.3d))
+
+results3d[2,] <- c(mean(oos.obj.fb.hetgp.3d), mean(oos.obj.rb.hetgp.3d), mean(oos.obj.mlb.hetgp.3d), mean(oos.obj.adsa.hetgp.3d), mean(oos.obj.ddsa.hetgp.3d), mean(oos.obj.absur.hetgp.3d))
+
+results3d <- data.frame(results3d)
+colnames(results3d) <- c("FB", "RB", "MLB", "ADSA", "DDSA", "ABSUR")
+rownames(results3d) <- c("homTP", "hetGP")
+pander(results3d, style = 'rmarkdown')
+```
