@@ -1,17 +1,18 @@
 #################
 #' @title Adaptive Batch design for optimal stopping
 #'
-#' @details Implements the EI strategy defined in model/al.heuristic. Calls lhs (library \pkg{tgp}).
-#' Empirical losses are computed using \code{cf.el} function
+#' @details Implements the adaptive batching strategy defined in model/batch.heuristic. Calls lhs (library \pkg{tgp}).
 #' @param method: either \code{km} or \code{hetgp} to select the GP emulator to apply
+#' @param t0: par \code{t0} in \code{ABSUR}
 #' @export
 #' @return a list containing:
-#' \code{price}: v(0,x_0); \code{fit} a list of fitted response surfaces. 
-#' \code{timeElapsed}, \code{nsims} total number of 1-step sim.func calls
-#' \code{empLoss} --vector of empirical losses 
-#' \code{ndesigns}: number of different designs
-#' \code{batches}: batch size
-osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
+#' \code{fit} a list of fitted response surfaces
+#' \code{timeElapsed} vector of time cost for each round
+#' \code{nsims} total number of 1-step sim.func calls
+#' \code{empLoss} vector of empirical losses
+#' \code{ndesigns}: number of design size k_T
+#' \code{batches}: matrix of replications r_i
+osp.seq.batch.design <- function(model, method="km", t0 = 0.01)
 {
   M <- model$T/model$dt
   t.start <- Sys.time()
@@ -25,7 +26,7 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
   if (is.null(model$batch.heuristic)) {
     model$batch.heuristic <- 'fb'
   }
-  
+
   # parameters in absur
   if (is.null(model$total.budget)) {
     model$total.budget = model$seq.design.size * model$batch.nrep
@@ -36,17 +37,17 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
   r_lower = model$r.cand[1]
   r_upper = min(model$r.cand[length(model$r.cand)], 0.1 * model$total.budget)
   r_interval = seq(r_lower, r_upper, length = 1000)
-  theta_for_optim = c(0.1371, 0.000815, 1.9871E-6)
+  theta_for_optim = c(0.1371, 0.000815, 1.9871E-6)  # c_{oh} in eq. (13)
   batch_matrix <- matrix(rep(0, M*model$seq.design.size), ncol=M)
-  
+
   # parameter in adsa and ddsa
   c_batch = 20 / model$dim
-  
+
   fits <- list()   # list of emulator objects at each step
   pilot.paths <- list()
   emp.loss <- array(0, dim=c(M,model$seq.design.size-model$init.size))
   update.kernel.iters <- seq(0,model$seq.design.size,by=model$update.freq)   # when to refit the whole GP
-  
+
   # set-up a skeleton to understand the distribution of X
   pilot.paths[[1]] <- model$sim.func( matrix(rep(model$x0[1:model$dim], 5*model$init.size),
                                              nrow=5*model$init.size, byrow=T), model, model$dt)
@@ -57,12 +58,12 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
   init.grid <- pilot.paths[[M-1]]
   budget.used <- rep(0,M-1)
   theta.fit <- array(0, dim=c(M,model$seq.design.size-model$init.size+1,model$dim))
-  
+
   ############ step back in time
   for (i in (M-1):1)
   {
     all.X <- matrix( rep(0, (model$dim+2)*model$seq.design.size), ncol=model$dim+2)
-    
+
     # construct the input domain where candidates will be looked for
     if (is.null(model$lhs.rect)) {
       model$lhs.rect <- 0.02
@@ -72,42 +73,42 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
       # create a box using empirical quantiles of the init.grid cloud
       for (jj in 1:model$dim)
         lhs.rect[jj,] <- quantile( init.grid[,jj], c(model$lhs.rect, 1-model$lhs.rect) )
-    } else { # already specified 
+    } else { # already specified
       lhs.rect <- model$lhs.rect
     }
-    
+
     if (is.null(model$min.lengthscale)) {
-      model$min.lengthscale <- rep(0.1, model$dim) 
+      model$min.lengthscale <- rep(0.1, model$dim)
     }
-    
+
     # Candidate grid of potential NEW sites to add. Will be ranked using the EI acquisition function
     # only keep in-the-money sites
     ei.cands <- lhs( model$cand.len, lhs.rect )  # from tgp package
     ei.cands <- ei.cands[ model$payoff.func( ei.cands,model) > 0,,drop=F]
-    
-    
+
+
     # initial design
     if (is.null(model$init.grid)) {
-      init.grid <- lhs( model$init.size, lhs.rect)
+      init.grid <- lhs(model$init.size, lhs.rect)
     } else {
       init.grid <- model$init.grid
     }
     if (model$dim > 1) {
       K0 <- dim(init.grid)[1]
-      
+
       # initial conditions for all the forward paths: replicated design with batch.nrep
       big.grid <- init.grid[ rep(1:K0, model$batch.nrep),]
     } else {
       K0 <- length(init.grid)
       big.grid <- as.matrix(init.grid[ rep(1:K0, model$batch.nrep)])
     }
-    
+
     fsim <- forward.sim.policy( big.grid, M-i,fits[i:M],model, compact=T, offset=0)
     cur.sim <- cur.sim + fsim$nsims
-    
+
     # payoff at t
     immPayoff <- model$payoff.func( init.grid, model)
-    
+
     # batched mean and variance
     for (jj in 1:K0) {
       all.X[jj,model$dim+1] <- mean( fsim$payoff[ jj + seq(from=0,len=model$batch.nrep,by=K0)]) - immPayoff[ jj]
@@ -116,12 +117,12 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
     all.X[1:K0,1:model$dim] <- init.grid  # use  first dim+1 columns for batched GP regression
     k <- K0
     batch_matrix[1:K0, i] <- model$batch.nrep
-    
+
     # create the km object
     if (method == "km") {
       fits[[i]] <- km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
                       noise.var=all.X[1:k,model$dim+2]/model$batch.nrep,
-                      control=list(trace=F), lower=model$min.lengthscale, covtype=model$kernel.family, 
+                      control=list(trace=F), lower=model$min.lengthscale, covtype=model$kernel.family,
                       nugget.estim= TRUE,
                       coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var)
     }
@@ -145,17 +146,17 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
                                    covtype=model$kernel.family)
       theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
     }
-    
+
     # initialize gamma for RB and MLB
     gamma <- sqrt(mean(all.X[1:K0,model$dim+2])/model$batch.nrep) / 2
     r_batch = model$batch.nrep
-    
+
     # active learning loop
     add.more.sites <- TRUE
     k <- K0 + 1
     running_budget = model$batch.nrep*K0
     n <- K0 + 1
-    
+
     # active learning loop:
     # to do it longer for later points to minimize error build-up use: *(1 + i/M)
     while(add.more.sites)
@@ -182,7 +183,7 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
         dX_2[,dd] <- dX_2[,dd]/(lhs.rect[dd,2]-lhs.rect[dd,1])
       }
       # from package lagp
-      ddx <- distance( dX_1, dX_2) #ddx <- distance( pilot.paths[[i]], ei.cands)
+      ddx <- distance( dX_1, dX_2)
       x.dens <- apply( exp(-ddx*dim(ei.cands)[1]*0.01), 2, sum)
       emp.loss[i,k-model$init.size] <- sum(losses*x.dens)/sum(x.dens)
       if (is.null(model$el.thresh) == FALSE) { # stop if below the Emp Loss threshold
@@ -190,30 +191,28 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
           add.more.sites <- FALSE
         }
       }
-      
-      # use active learning measure to select new sites and associated batch size
+
+      # use active learning measure to select new sites and associated replication
       if (model$ei.func == 'absur') {
           overhead = 3 * model$dim * CalcOverhead(theta_for_optim[1], theta_for_optim[2], theta_for_optim[3], k + 1)
           al.weights <- cf.absur(cand.mean, cand.sd, nug, r_interval, overhead, t0)
-          
-          # select site with highest EI score
+
+          # select site and replication with highest EI score
           x.dens.matrix <- matrix(x.dens, nrow=length(x.dens), ncol=length(r_interval))
           ei.weights <- x.dens.matrix * al.weights
-          
+
           # select next input location
           max_index <- which.max(ei.weights)
           x_index <- max_index %% length(x.dens)
           x_index <- ifelse(x_index, x_index, length(x.dens))
           add.grid <- ei.cands[x_index,,drop=F]
-          
+
           # select associated batch size
           r_index <- (max_index - 1) / model$cand.len + 1
           r_batch <- min(round(r_interval[r_index]), model$total.budget - running_budget)
       } else {
-        #---------- use active learning measure to select new sites
-        #if (model$ei.func == 'ucb')
-        #  al.weights <- qEI.ucb(pred.cands, model$ucb.gamma*sqrt(log(k)))
-        if (model$ei.func == 'sur')  
+        # use active learning measure to select new sites
+        if (model$ei.func == 'sur')
           al.weights <- cf.sur(cand.mean, cand.sd, nugget = nug / sqrt(model$batch.nrep))
         if (model$ei.func == 'tmse')
           al.weights <- cf.tMSE(cand.mean, cand.sd, seps = model$tmse.eps)
@@ -228,7 +227,7 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
         if (model$ei.func == 'csur')
           al.weights <- cf.csur(cand.mean, cand.sd,nugget=nug / sqrt(model$batch.nrep))
         if (model$ei.func == 'icu' || model$batch.heuristic == 'adsa' || model$batch.heuristic == 'ddsa') {
-          # Integrated contour uncertainty with weights based on *Hard-coded* log-normal density
+          # Integrated contour uncertainty with weights based on *Hard-coded* log-normal density and create testing points
           if (model$dim >= 2) {
             x.dens2 <- dlnorm( ei.cands[,1], meanlog=log(model$x0[1])+(model$r-model$div - 0.5*model$sigma[1]^2)*i*model$dt,
                                sdlog = model$sigma[1]*sqrt(i*model$dt) )
@@ -239,27 +238,26 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
             x.dens2 <- x.dens2*dlnorm( ei.cands[,3], meanlog=log(model$x0[3])+(model$r-model$div-0.5*model$sigma[3]^2)*i*model$dt,
                                        sdlog = model$sigma[3]*sqrt(i*model$dt) )
           }
-          #plot(ei.cands[,1], ei.cands[,2], cex=cf.mcu(cand.mean, cand.sd)*x.dens2*4000,pch=19)
-          
+
           if (model$ei.func == 'icu') {
             kxprime <- cov_gen(X1 = fits[[i]]$X0, X2 = ei.cands, theta = fits[[i]]$theta, type = fits[[i]]$covtype)
-            al.weights <- apply(ei.cands,1, crit_ICU, model=fits[[i]], thres = 0, Xref=ei.cands, 
+            al.weights <- apply(ei.cands,1, crit_ICU, model=fits[[i]], thres = 0, Xref=ei.cands,
                                 w = x.dens2, preds = pred.cands, kxprime = kxprime)
           }
-          
+
         }
-      
+
         # select site with highest EI score
         if (model$ei.func != 'icu') {
           ei.weights <- x.dens*al.weights
         } else {
           ei.weights<- al.weights # those are negative for ICU
         }
-        
+
         x_index <- which.max(ei.weights)
         add.grid <- ei.cands[x_index,,drop=F]
       }
-      
+
       # use active batching algorithms to select batch size
       if (model$batch.heuristic == 'fb') {
         r_batch = model$batch.nrep
@@ -269,7 +267,7 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
           rb_batch <- batch.rb(cand.sd[x_index], model$r.cand, r_batch, nug[x_index], gamma)
           r_batch <- min(rb_batch$roptim, model$total.budget - running_budget)
           gamma <- rb_batch$gamma
-        } 
+        }
         if (model$batch.heuristic == 'mlb') {
           mlb_batch <- batch.mlb(cand.sd[x_index], model$r.cand, nug[x_index], gamma)
           r_batch <- min(mlb_batch$roptim, model$total.budget - running_budget)
@@ -288,68 +286,54 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
           }
         }
       }
-      
+
       # if using up all budget, move on to next time step
       if (is.numeric(r_batch) && r_batch == 0) {
         add.more.sites <- FALSE
         next
       }
-      
+
       if(is.null(add.grid) || model$batch.heuristic == 'ddsa' && k%%2) { # Reallocation
-        
+
         # Indexes for inputs which receives further allocation
         idx_diff = which(r_batch != batch_matrix[1:(n - 1), i])
         r_seq_diff = r_batch[idx_diff] - batch_matrix[idx_diff, i]
-        add.mean = rep(0, length(idx_diff))
-        add.var = rep(0, length(idx_diff))
-        
-        if (method == 'hetgp') {
-          newX <- matrix(, nrow = 0, ncol = model$dim)
-          newY <- vector()
-        }
-        
-        # Reallocates new observations
-        for(l in 1:length(idx_diff)) {
-          idx = idx_diff[l]
-          change.grid = matrix(all.X[idx,1:model$dim], nrow = r_seq_diff[l], ncol = model$dim, byrow = T)
-          
-          # compute corresponding y-values
-          fsim <- forward.sim.policy( change.grid, M-i, fits[i:M], model, compact=T, offset=0)
-          cur.sim <- cur.sim + fsim$nsims
-          
-          # payoff at t
-          immPayoff <- option.payoff(change.grid, model)
-          add.mean[l] = mean(fsim$payoff - immPayoff)
-          
-          if (length(immPayoff) == 1) {
-            add.var[l] = 0.00001
-          } else {
-            add.var[l] = var(fsim$payoff - immPayoff) + 0.00001 # avoid unstable results %
-          }
-          
-          if (method == 'hetgp') {
-            newX = rbind(newX, change.grid)
-            newY = c(newY, fsim$payoff - immPayoff)
-          }
-        }
-        
+
+        ids <- seq(1, length(r_seq_diff))
+        ids_rep <- unlist(mapply(rep, ids, r_seq_diff))
+
+        newX <- all.X[idx_diff, 1:model$dim]
+        newX <- matrix(unlist(mapply(rep, newX, r_seq_diff)), ncol = model$dim)
+
+        # compute corresponding y-values
+        fsim <- forward.sim.policy(newX, M-i, fits[i:M], model, compact=T, offset=0)
+        cur.sim <- cur.sim + fsim$nsims
+
+        # payoff at t
+        immPayoff <- model$payoff.func(newX, model)
+        newY <- fsim$payoff - immPayoff
+
+        add.mean <- tapply(newY, ids_rep, mean)
+        add.var <- tapply(newY, ids_rep, var)
+        add.var[is.na(add.var)] <- 0.0000001
+
         y_new = (all.X[idx_diff, model$dim+1] * batch_matrix[idx_diff, i] + add.mean * r_seq_diff) / r_batch[idx_diff]
         var_new = (all.X[idx_diff, model$dim+2] * (batch_matrix[idx_diff, i] - 1) + batch_matrix[idx_diff, i] * all.X[idx_diff, model$dim+1] ^ 2 + add.var * (r_seq_diff - 1) + r_seq_diff * add.mean ^ 2) / (batch_matrix[idx_diff, i] - 1)
         all.X[idx_diff, model$dim + 1] = y_new
         all.X[idx_diff, model$dim + 2] = var_new
         batch_matrix[1:(n - 1), i] = r_batch
-        
+
         running_budget = running_budget + sum(r_seq_diff)
-        
+
         if (k %in% update.kernel.iters) {
           if (method == "km")
             fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n - 1, 1:model$dim]), response=data.frame(y=all.X[1:n - 1, model$dim+1]),
                             noise.var=all.X[1:n - 1,model$dim+2]/r_batch, covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
-                            coef.var=model$km.var, control=list(trace=F), 
+                            coef.var=model$km.var, control=list(trace=F),
                             lower=model$min.lengthscale,upper=model$max.lengthscale)
           if (method == "trainkm") {
             fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n - 1, 1:model$dim]), response=data.frame(y=all.X[1:n - 1, model$dim+1]),
-                            noise.var=all.X[1:n - 1,model$dim+2]/r_batch, covtype=model$kernel.family, control=list(trace=F), 
+                            noise.var=all.X[1:n - 1,model$dim+2]/r_batch, covtype=model$kernel.family, control=list(trace=F),
                             lower=model$min.lengthscale, upper=model$max.lengthscale)
             theta.fit[i,n-model$init.size+1,] <- coef(fits[[i]])$range
           }
@@ -373,15 +357,12 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
             fits[[i]] <- update(object=fits[[i]], Xnew=all.X[idx_diff, 1:model$dim, drop = F], Znew=y_new, maxit = 0)
         }
       } else { # add a new input
-        #add.grid <- ei.cands[sample(dim(ei.cands)[1],model$n.propose,replace=T, prob=ei.weights),,drop=F]
-        # select site with highest EI score
-        
         add.grid <- matrix(rep(add.grid[1, ,drop=F], r_batch), nrow = r_batch, byrow=T)  #batch
-        
+
         # compute corresponding y-values
         fsim <- forward.sim.policy( add.grid,M-i,fits[i:M],model,offset=0)
         cur.sim <- cur.sim + fsim$nsims
-        
+
         immPayoff <- model$payoff.func(add.grid, model)
         add.mean <- mean(fsim$payoff - immPayoff)
         if (r_batch == 1) {
@@ -391,16 +372,16 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
         }
         all.X[n,] <- c(add.grid[1,],add.mean,add.var)
         batch_matrix[n, i] <- r_batch
-        
+
         if (k %in% update.kernel.iters) {
           if (method == "km")
             fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n,1:model$dim]), response=data.frame(y=all.X[1:n,model$dim+1]),
                             noise.var=all.X[1:n,model$dim+2]/r_batch, covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
-                            coef.var=model$km.var, control=list(trace=F), 
+                            coef.var=model$km.var, control=list(trace=F),
                             lower=model$min.lengthscale,upper=model$max.lengthscale)
           if (method == "trainkm") {
             fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n,1:model$dim]), response=data.frame(y=all.X[1:n,model$dim+1]),
-                            noise.var=all.X[1:n,model$dim+2]/r_batch, covtype=model$kernel.family, control=list(trace=F), 
+                            noise.var=all.X[1:n,model$dim+2]/r_batch, covtype=model$kernel.family, control=list(trace=F),
                             lower=model$min.lengthscale, upper=model$max.lengthscale)
             theta.fit[i,n-model$init.size+1,] <- coef(fits[[i]])$range
           }
@@ -423,11 +404,11 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
           if (method == "homtp")
             fits[[i]] <- update(object=fits[[i]], Xnew=add.grid[1,,drop=F], Znew=add.mean, maxit = 0)
         }
-        
+
         running_budget = running_budget + sum(r_batch)
         n = n + 1
       }
-      
+
       # resample the candidate set
       ei.cands <- lhs(model$cand.len, lhs.rect)
       ei.cands <- ei.cands[ model$payoff.func( ei.cands,model) > 0,,drop=F]
@@ -438,7 +419,7 @@ osp.seq.batch.design <- function(model, method="km", nt = 1000, t0 = 0.01)
     }
     budget.used[i] <- n
   }
-  
+
   return (list(fit=fits,timeElapsed=Sys.time()-t.start,nsims=cur.sim,empLoss=emp.loss,
-               ndesigns=budget.used,theta=theta.fit, batches = batch_matrix))
+               ndesigns=budget.used, theta=theta.fit, batches = batch_matrix))
 }
