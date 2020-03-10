@@ -4,8 +4,13 @@
 \alias{osp.fixed.design}
 \title{Generic dynamic emulation with a non-sequential design}
 \usage{
-osp.fixed.design(model, input.domain = NULL, method = "km",
-  inTheMoney.thresh = 0, stop.freq = model$dt)
+osp.fixed.design(
+  model,
+  input.domain = NULL,
+  method = "km",
+  inTheMoney.thresh = 0,
+  stop.freq = model$dt
+)
 }
 \arguments{
 \item{input.domain:}{the domain of the emulator. Several options are available. Default in \code{NULL}
