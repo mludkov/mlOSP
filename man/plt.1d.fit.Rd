@@ -4,9 +4,16 @@
 \alias{plt.1d.fit}
 \title{Make a 3-panel plot of the 1-d fit from mc.put.adaptree}
 \usage{
-plt.1d.fit(obj, x.gr = seq(28, 40, len = 500), new.fig = F,
-  show.ci = "none", heuristic = "zc", al.weights = NULL,
-  obj2 = NULL, ...)
+plt.1d.fit(
+  obj,
+  x.gr = seq(28, 40, len = 500),
+  new.fig = F,
+  show.ci = "none",
+  heuristic = "zc",
+  al.weights = NULL,
+  obj2 = NULL,
+  ...
+)
 }
 \arguments{
 \item{new.fig}{: whether to create a fresh panel}
