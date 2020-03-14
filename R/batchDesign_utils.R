@@ -313,18 +313,17 @@ plt.2d.surf.batch <- function( fit1, fit2, r1, r2, batch1, batch2, x=seq(31,43,l
 
   p <- ggplot(data = samples, aes(x = x1, y = x2)) +
     geom_raster(data = fitted.data.2d, aes(x = x1, y = x2, fill = m)) +
-    scale_fill_gradientn(name = expression(hat(f)), colours=rev(c("cyan", "blue4")),
-                         values=c(-0.3, 1.3)) +
-    geom_point(aes(size = r, color = r)) +
-    scale_colour_gradientn(colours = terrain.colors(10)) +
+    scale_fill_gradient2(low = "black", high = "yellow", mid = "red") +
+    geom_point(aes(color = r), size = 2) +
+    scale_color_gradient(low = "cyan", high = "purple") +
     facet_grid(col = vars(batch)) +
-    scale_x_continuous(name = expression(x[1]), breaks = c(25, 35, 45), labels = c(25, 35, 45), limits = c(25, 50)) +
-    scale_y_continuous(name = expression(x[2]), breaks = c(25, 35, 45), labels = c(25, 35, 45), limits = c(25, 50))
+    scale_x_continuous(name = expression(x[1]), breaks = c(25, 35, 45), labels = c(25, 35, 45), limits = c(25, 50), expand = c(0, 0)) +
+    scale_y_continuous(name = expression(x[2]), breaks = c(25, 35, 45), labels = c(25, 35, 45), limits = c(25, 50), expand = c(0, 0))
 
-  p + stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = m), breaks = 0, color = "red", inherit.aes=FALSE, size = 1) +
+  p + stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = m), breaks = 0, color = "black", inherit.aes=FALSE, size = 0.8) +
     facet_grid(col = vars(batch)) +
-    stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = lbound), color = "red", linetype = "longdash", breaks = 0, size = 1) +
-    stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = ubound), color = "red",linetype = "longdash", breaks = 0, size = 1) +
+    stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = lbound), color = "black", linetype = "longdash", breaks = 0, size = 0.8) +
+    stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = ubound), color = "black",linetype = "longdash", breaks = 0, size = 0.8) +
     plot_style()
 }
 
@@ -339,25 +338,74 @@ plot_style <- function(base_size = 14, base_family = "Helvetica",...) {
     theme(panel.border = element_blank(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          strip.text = element_text(margin = margin(b = 5)),
+          strip.text = element_blank(),
           axis.line = element_line(colour = "black",size = 0.5),
           strip.background = element_rect(fill = "white",colour = "white",size = 1),
-          legend.direction   = "horizontal",
-          legend.position = "bottom",
-          legend.box = "horizontal",
+          legend.direction   = "vertical",
+          legend.position = "right",
+          legend.box = "vertical",
           legend.text.align = 0,
-          legend.text = element_text(size=14),
+          legend.text = element_text(size=8, margin = margin(r = 5, unit = "pt")),
           legend.box.just = "left",
           legend.key = element_blank(),
-          legend.title = element_text(size=14),
+          legend.title = element_blank(),
           legend.background = element_blank(),
+          legend.margin = margin(c(2, 2, 2, 0)),
           complete = TRUE,
-          axis.text.x = element_text( colour = 'black', angle = 90, size = 13, hjust = 0.5, vjust = 0.5),
-          axis.title.x = element_text(size = 16, hjust = 0.5, vjust = 0.2),
-          axis.text.y = element_text(colour = 'black', size = 12),
-          axis.title.y = element_text(size = 16, angle = 90, hjust = 0.5, vjust = 0.2),
+          axis.text.x = element_text( colour = 'black', size = 10, hjust = 0.5, vjust = 0.5),
+          axis.title.x = element_text(size = 12, hjust = 0.5, vjust = 0.2),
+          axis.text.y = element_text(colour = 'black', size = 10),
+          axis.title.y = element_text(size = 12, angle = 90, hjust = 0.5, vjust = 0.2),
           strip.text.y = element_text(size = 14, hjust = 0.5,  vjust = 0.5, face = 'bold'),
           strip.text.x = element_text(size = 14, hjust = 0.5,  vjust = 0.5, face = 'bold'),
           ...)
 }
 
+######
+#' two-dimensional image+contour plot with batch size
+#' @title Visualize 2D emulator + stopping region + batch size
+#' @details Uses the quilt.plot command from \pkg{fields}
+#'
+#' @param x,y locations to use for the \code{predict()} functions. Default is a 200x200 fine grid.
+#' Passed to \code{expand.grid}
+#' @param fit can be any of the types supported by \code{\link{forward.sim.policy}}
+#' @param show.var -- if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
+#' This only works for \code{km} and \code{het/homGP} objects
+#' @param only.contour -- just add the zero-contour, no quilt.plot
+#' @param ub to create an upper bound to see the zero-contour better
+#' @param .. -- pass additional options to \code{quilt.plot}
+#' @param contour.col (default is "red") -- color of the zero contour
+#' @export
+plt.2d.surf.with.batch <- function( fit, batch_size, x=seq(25,50,len=201),y = seq(25,50,len=201),ub=1e6,
+                         show.var=FALSE, only.contour=FALSE, contour.col="black",...)
+{
+  gr <- expand.grid(x=x,y=y)
+
+  # calculate posterior mean and standard deviation for grid
+  if (class(fit)=="km") {
+    m <- predict(fit,data.frame(x=cbind(gr$x,gr$y)), type="UK")$mean
+    sd<- predict(fit,data.frame(x=cbind(gr$x,gr$y)), type="UK")$sd
+  }
+  if( (class(fit)=="homGP" | class(fit) == "hetGP")) {
+    m <- predict(x=cbind(gr$x,gr$y), object=fit)$mean
+    sd <- sqrt(predict(x=cbind(gr$x,gr$y), object=fit)$sd2)
+  }
+
+  fitted.data.2d <- data.frame(x1 = gr$x, x2 = gr$y, m = m, lbound = m - 1.96 * sd , ubound = m + 1.96 * sd)
+  samples <- data.frame(x1 = fit@X[,1], x2 = fit@X[,2], r = batch_size)
+  cols <- brewer.pal(n = 9, name = "PuBuGn")
+
+  p <- ggplot(data = samples, aes(x = x1, y = x2)) +
+    geom_raster(data = fitted.data.2d, aes(x = x1, y = x2, fill = m)) +
+    scale_fill_gradient2(low = "black", high = "yellow", mid = "red") +
+    geom_point(aes(color = r), size = 2) +
+    # scale_color_gradient(low = "cyan", high = "blue", limits = c(0, 200)) +
+    scale_colour_gradientn(colours = cols, values = rescale(c(seq(20, 140, 8), 188)), guide = "colorbar", limits=c(10, 188)) +
+    scale_x_continuous(name = expression(x[1]), breaks = c(25, 35, 45), labels = c(25, 35, 45), limits = c(25, 50), expand = c(0, 0)) +
+    scale_y_continuous(name = expression(x[2]), breaks = c(25, 35, 45), labels = c(25, 35, 45), limits = c(25, 50), expand = c(0, 0))
+
+  p + stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = m), breaks = 0, color = "black", inherit.aes=FALSE, size = 0.8) +
+    stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = lbound), color = "black", linetype = "longdash", breaks = 0, size = 0.8) +
+    stat_contour(data = fitted.data.2d, aes(x = x1, y = x2, z = ubound), color = "black",linetype = "longdash", breaks = 0, size = 0.8) +
+    plot_style()
+}
