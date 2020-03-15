@@ -631,6 +631,3 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1)
   # tau are the times when stopped
   # sims is a list; sims[[i]] are the forward x-values of paths at t=i (those not stopped yet)
 }
-
-
-

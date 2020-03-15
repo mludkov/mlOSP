@@ -233,7 +233,7 @@ osp.seq.design <- function(model,method="km")
           theta.fit[i,k-model$init.size+1,] <- coef(fits[[i]])$range
         }
         if (method == "hetgp") {
-           fits[[i]] <- update(object=fits[[i]], Xnew=add.grid,Znew=fsim$payoff-immPayoff,method="mixed",
+           fits[[i]] <- update(object=fits[[i]], Xnew=add.grid, Znew=fsim$payoff-immPayoff,method="mixed",
                                lower = model$min.lengthscale, upper=model$max.lengthscale)
            theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
         }
