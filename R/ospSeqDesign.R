@@ -113,7 +113,7 @@ osp.seq.design <- function(model,method="km")
     if (method == "homtp") {
       fits[[i]] <- hetGP::mleHomTP(X=init.grid, Z=all.X[1:k,model$dim+1],
                                    lower=model$min.lengthscale,upper=model$max.lengthscale,
-                      covtype=model$kernel.family, noiseControl=list(nu_bounds=c(2.01,5)))
+                      covtype=model$kernel.family, noiseControl=list(nu_bounds=c(2.01,10),sigma2_bounds = c(5e-2, 4)))
       theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
     }
     
@@ -238,7 +238,7 @@ osp.seq.design <- function(model,method="km")
            theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
         }
         if (method == "homtp") {
-          fits[[i]] <- mleHomTP(X=all.X[1:k,1:model$dim], Z=all.X[1:k,model$dim+1],noiseControl=list(nu_bounds=c(2.01,5)),
+          fits[[i]] <- mleHomTP(X=all.X[1:k,1:model$dim], Z=all.X[1:k,model$dim+1],noiseControl=list(nu_bounds=c(2.01,10),sigma2_bounds=c(5e-2,4)),
                                  lower=model$min.lengthscale,upper=model$max.lengthscale, covtype=model$kernel.family)
           theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
         }
