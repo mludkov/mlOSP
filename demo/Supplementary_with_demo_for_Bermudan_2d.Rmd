@@ -1,16 +1,29 @@
 ---
-title: "Supplementary Material for Adaptive Batching Design with Application in Noisy Level Set Estimation"
+title: "Supplementary Material for `Adaptive Batching Design with Application in Noisy Level Set Estimation'"
 output: pdf_document
 ---
 
-This is the supplementary document for paper "Adaptive Batching for Gaussian Process Surrogates with Application in Noisy Level Set Estimation". We firstly provided the example code to regenerate Figure 6 in Section 6 of the paper. Then we included the implementation examples for several main functions. Last but not least, we specify the detailed definitions for the rescaled 2D Branin-Hoo function and 6D Hartman function, which are used for synthetic experiments in Section 5.
+This RMarkdown document supplements the article "Adaptive Batching for Gaussian Process Surrogates with Application in Noisy Level Set Estimation". We provide 
 
-# Figure Regeneration
-This is a demo code to generate Figure 6. The plot shows the fitted exercise boundary with its 95\% credible interval (solid line and dashed line) obtained with Gaussian Process for two-dimensional basket put Bermudan option. Two batch heuristics, ABSUR and ADSA, are used to select the inputs and their associated replications, which are shown as the dots and their color
+* Code to reproduce Figure 6 in Section 6 of the paper that deals with Bermudan option pricing. 
 
-Firstly we load the required libraries. Note that all implementations for estimating the optimal stopping criteria for Bermudan option with adaptive batching design are included in library \texttt{mlOSP}, which is maintained on Github by the  authors of the paper. Link will be provided upon request.
-```{r setup, include=TRUE, message=FALSE, warning=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+* Implementation in R for several key functions related to adaptive batching
+
+* Definitions of the rescaled 2D Branin-Hoo function and  the 6D Hartman function, which are used for synthetic experiments in Section 5.
+
+The R code is part of a larger GitHub library for Bermudan option pricing which can be provided upon request (withheld to maintain author identity for double-blind review process).
+
+# A:  Visualizing Adaptive Batching for Bermudan Option Pricing
+
+We consider adaptive batching for a Gaussian GP metamodel for a two-dimensional basket Put Bermudan option. The asset follows
+log normal dynamics
+$$
+{Z}_{t+\Delta t} = {Z}_{t} \cdot\exp \bigg((r-\frac{1}{2} diag{{\Xi}})\Delta t + \sqrt{\Delta t} \cdot {\Xi} (\Delta {W}_{t})\bigg) 
+$$
+where $\Delta W_t$ are independent Gaussians, and the payoff is $h_{Put}(t,{z})  = e^{-r t}( {\cal K} - z^1 - z^2)_+$.
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE,cache=TRUE)
 library(ks)
 library(fields) # for plotting purposes, use quilt.plot in 2D
 library(mlOSP)
@@ -26,35 +39,28 @@ library(scales)
 data("int_2d")
 ```
 
-Then we set up the model for basket put with parameters in Table 4, including the total simulations $N_T$ by \textit{total.budget}, initial design size $k_0$ by \textit{init.size}, initial batch size $r_0$ by \textit{batch.nrep} and kernal function $K$ by \textit{kernel.family}. The parameters of the model is initialized as a list, which is later used as input in the main function \textbf{osp.seq.batch.design.simplified}.
+The code below sets up the model for an arithmetic Basket Put with parameters in Table 4 of the article, including the total simulations $N_T$ stored in \textit{total.budget}, initial design size $k_0$ in \textit{init.size}, initial batch size $r_0$ in \textit{batch.nrep} and kernel function $K$ in \textit{kernel.family}. The parameters of the model are initialized as a list, which is later used as input in the main function \textbf{osp.seq.batch.design.simplified}.
 ```{r}
 model2d <- list(x0 = rep(40,2),K=40,sigma=rep(0.2,2),r=0.06,
                 div=0,T=1,dt=0.04,dim=2,sim.func=sim.gbm, 
-                payoff.func=put.payoff)
-model2d$pilot.nsims <- 1000
-model2d$look.ahead <- 1
-model2d$cand.len <- 1000   # size of testing set m_0
-model2d$max.lengthscale <- c(40,40)
+                payoff.func=put.payoff, look.ahead=1, pilot.nsims=1000)
+
+model2d$cand.len <- 1000      # size of testing set m_0
+model2d$max.lengthscale <- c(40,40)  # bounds on lengthscales for the squared-exp kernel function
 model2d$min.lengthscale <- c(3,3)
-model2d$tmse.eps <- 0
+model2d$seq.design.size <- 100  # K_T
+model2d$batch.nrep <- 20      # initial replication r_0
+model2d$total.budget <- 2000  # budget N_T = r_0 * k = 2000
+model2d$init.size <- 20       # initial design size k_0
+model2d$init.grid <- int_2d   # initial grid: pre-loaded from the library
 
-model2d$ucb.gamma <- 1.96
-
-model2d$seq.design.size <- 100   
-model2d$batch.nrep <- 20  # initial replication r_0
-model2d$total.budget <- 2000  # budget N = r_0 * k = 2000
-model2d$init.size <- 20   # initial design size k_0
-model2d$init.grid <- int_2d
-
-model2d$tmse.eps <- 0
-model2d$kernel.family <- "gauss"  # kernel function for Gaussian Process
-model2d$ucb.gamma <- 1.96
-model2d$update.freq <- 5   # number of sequential design steps to update the GP surrogate
-nReps <- 2
+model2d$kernel.family <- "gauss"  # GP kernel function: squared-exponential
+model2d$update.freq <- 5      # frequency of re-fitting GP hyperparameters
 model2d$r.cand <- c(20, 30,40,50,60, 80, 120, 160) # r_L
 ```
 
-We specify the batch heuristic with \textit{batch.heuristic} and the sequential design framework with \textit{ei.func}, and then fit GP simulators for the option with function \textbf{osp.seq.batch.design.simplified}. This function is a simplified version of \textbf{osp.seq.batch.design}, where the user can specify the model from a full list of \textit{km} (kriging in package \texttt{DiceKriging}), \textit{trainkm} (train parameters in kriging), \textit{hetgp} (heteroscedastic Gaussian Process) and \textit{homtp} (homoscedastic Student-$t$ Process). The last two models are implemented in package \texttt{hetGP}. The user can also specify the adaptive batching algorithm from a full list of \textit{fb} (Fixed Batching), \textit{mlb} (Multi-Level Batching), \textit{rb} (Rachet Batching), \textit{adsa} (Adaptive Batching Design with Stepwise Allocation) and \textit{ddsa} (Deterministic Batching Design with Stepwise Allocation), and the sequential design framework from a full list of \textit{amcu} (Adaptive Maximum Contour Uncertainty), \textit{mcu} (Maximum Contour Uncertainty), \textit{csur} (Contour Stepwise Uncertainty Reduction), \textit{icu} (Integrated Contour Uncertainty) and \textit{absur} (used together when \textit{batch.heuristic} is \textit{absur}).
+To implement adaptive batching we need to specify the batch heuristic via \textit{batch.heuristic} and the sequential design framework with \textit{ei.func}. The function \textbf{osp.seq.batch.design.simplified} then fits  the GP simulator. Fitting is done through the \texttt{DiceKriging} library, namely the main \texttt{km} function there. Below we apply Adaptive Design with Sequential Allocation, ADSA (which relies on the MCU acquisition function) and Adaptive Batching with Stepwise Uncertainty Reduction, ABSUR. The method parameter \texttt{trainkm} means that the GP metamodels are trained using the default \texttt{DiceKriging::km} MLE optimizer.
+
 ```{r, message=FALSE, warning=FALSE}
 ## GP + ADSA
 set.seed(110)
@@ -69,26 +75,58 @@ model2d$ei.func <- 'absur'
 oos.obj.absur <- osp.seq.batch.design.simplified(model2d, method="trainkm")
 ```
 
-In the end, we plot the fitted exercise boundary at $t = 0.6$ with function \textbf{plt.2d.surf.with.batch}. The first argument is the fitted GP emulator (including the fitted model and the input sites), and the second argument is the batch size corresponding to the selected input sites. 
+The objects \texttt{oos.obj.xxx} are lists that contain the GP metamodels for each time-step of the Bermudan option problem ($M=25$ in the example above). We visualize the fitted timing values at $t=0.6 = 15 \Delta t$. The respective zero contour is the \textit{exercise boundary}. 
 
-Firstly we plot the figure for results obtained with ADSA.
-```{r, message=FALSE, warning=FALSE}
-### plot Figure 6 - ADSA
+The function \textbf{plt.2d.surf.with.batch} plots the fitted exercise boundary together with its 95\% credible interval (solid line and dashed curves, respectively). The inputs are shown as the dots and their color indicates the replication amounts $r_i$'s.  The first argument is the fitted GP emulator (including the fitted model and the input sites), and the second argument is the batch sizes corresponding to the selected input sites. 
+
+First we plot the figure for results obtained with ADSA.
+```{r, message=FALSE, warning=FALSE, fig.height=3.5, fig.width=6, fig.cap="Timing Value Exercise Boundary using ADSA"}
+oos.obj.adsa$ndesigns[15]  # number of unique designs
+### plot Figure 6 right panel - ADSA
 plt.2d.surf.with.batch(oos.obj.adsa$fit[[15]], 
                        oos.obj.adsa$batches[1:oos.obj.adsa$ndesigns[15] - 1, 15])
 ```
 
-Secondly we plot the figure for results obtained with ABSUR.
-```{r, message=FALSE, warning=FALSE}
-### plot Figure 6 - ABSUR
+The second one is for ABSUR
+```{r, message=FALSE, warning=FALSE,fig.height=3.5, fig.width=6, fig.cap="Timing Value Exercise Boundary using ABSUR"}
+oos.obj.absur$ndesigns[15]  # number of unique designs
+### plot Figure 6 left panel - ABSUR
 plt.2d.surf.with.batch(oos.obj.absur$fit[[15]], 
                        oos.obj.absur$batches[1:oos.obj.absur$ndesigns[15] - 1, 15])
 ```
 
-# Implementations for adaptive batching design functions
-This is the implementation of a simplified function of adaptive batching algorithms for estimating the stopping criteria for Bermudan option, only for Gaussian Process with two batching heuristics: ADSA and ABSUR. The full version which handles variety of Gaussian Process based models and three other batching heuristics can be provided upon request. There are three inputs: \textit{model} is the list defined the parameters. During the backward dynamic programming, we iterate over $t = T, T-\Delta t, \ldots, 0$ (in a total of $M = T/\Delta t$ steps), and the simulator of $T(t,x)$ returns the difference between the pathwise payoff (\textit{fsim\$payoff} in the function) along a trajectory of $(\mathbf{X}_{t:T})$ that is based on the forward exercise strategy summarized by the forward-looking $\{\hat{S}_s, s > t\}$, and $h(t,x)$ (\textit{immPayoff} in the function). To accomplish this, several main variables are used: \textit{fits} (list of GP simulators at each time point; the parameters of GP are re-estimated every \textit{model\$update.freq} steps), \textit{all.X} (matrix of designs; the first $d$ dimensions are the input sites $\mathbf{x}_{1:k_n}$, the $d+1$ dimension is the observation mean $\bar{\mathbf{y}}_{1:k_n}$, and the $d+2$ dimension is the observation variance), and \textit{batch\_matrix} (the batch size $\mathbf{r}_{1:k_n}$ for each input).
-```{r}
+# B: Implementations of adaptive batching design functions
+Below we provide  the R implementation of a simplified version of adaptive batching algorithms for estimating the stopping criteria for Bermudan options. The full version (which is hidden to maintain the double-blind review)
+handles a variety of Gaussian Process metamodels (specified via \textit{method}) and implements all the proposed  batching heuristics:
+
+* \texttt{fb}: Fixed Batching
+
+* \texttt{mlb}: Multi-Level Batching
+
+* \texttt{rb}: Ratchet Batching
+
+* \texttt{adsa}: Adaptive Batching Design with Stepwise Allocation
+
+* \texttt{ddsa}: Deterministic Batching Design with Stepwise Allocation
+
+The function's main input is \textit{model} which is the list defining the Bermudan option and GP parameters.  \textit{t0} is one of the overhead parameters in ABSUR.
+
+During the backward dynamic programming loop indexed by \textit{i} we iterate over $t = T, T-\Delta t, \ldots, 0$ (a total of $M = T/\Delta t$ steps), and the simulator of $T(t,x)$ returns the difference between the pathwise payoff (\textit{fsim\$payoff} below) along a trajectory of $(\mathbf{X}_{t:T})$ that is based on the forward exercise strategy summarized by the forward-looking $\{\hat{\mathfrak{S}}_s, s > t\}$, and $h(t,x)$ (\texttt{immPayoff} in the function). 
+
+To accomplish this, the main variables are: 
+
+* \texttt{fits}: list of GP simulators at each time step; the hyper-parameters of the GP metamodel are re-trained every \texttt{model\$update.freq} steps;
+
+* \texttt{all.X}: matrix of designs; the first $d$ dimensions are the input sites $\mathbf{x}_{1:k_n}$, the $d+1$ dimension is the observation mean $\bar{\mathbf{y}}_{1:k_n}$, and the $d+2$ dimension is the observation variance;
+
+* \texttt{batch\_matrix}: the batch size $\mathbf{r}_{1:k_n}$ for each input.
+
+
+```{r include=FALSE}
 detach("package:mlOSP", unload=TRUE)
+```
+
+```{r}
 osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
 {
   M <- model$T/model$dt
@@ -97,10 +135,10 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
   r_lower = model$r.cand[1]
   r_upper = min(model$r.cand[length(model$r.cand)], 0.1 * model$total.budget)
   r_interval = seq(r_lower, r_upper, length = 1000)
-  theta_for_optim = c(0.1371, 0.000815, 1.9871E-6)  # c_{oh} in eq. (13)
+  theta_for_optim = c(0.1371, 0.000815, 1.9871E-6)  # c_{ovh} in eq. (13)
   batch_matrix <- matrix(rep(0, M*model$seq.design.size), ncol=M)
   
-  # parameter in adsa and ddsa
+  # batch parameter in adsa and ddsa
   c_batch = 20 / model$dim
   
   fits <- list()   # list of emulator objects at each step
@@ -112,11 +150,10 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
   pilot.paths[[1]] <- model$sim.func( matrix(rep(model$x0[1:model$dim], 
                                                  5*model$init.size),
                                              nrow=5*model$init.size, byrow=T), 
-                                      model, 
-                                      model$dt)
-  for (i in 2:(M-1)) {
+                                      model, model$dt)
+  for (i in 2:(M-1)) 
     pilot.paths[[i]] <- model$sim.func( pilot.paths[[i-1]], model, model$dt)
-  }
+  
   pilot.paths[[1]] <- pilot.paths[[3]]
   init.grid <- pilot.paths[[M-1]]
   budget.used <- rep(0,M-1)
@@ -126,72 +163,53 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
   {
     all.X <- matrix( rep(0, (model$dim+2)*model$seq.design.size), ncol=model$dim+2)
     
-    # construct the input domain where candidates will be looked for
-    if (is.null(model$lhs.rect)) {
-      model$lhs.rect <- 0.02
-    }
-    if (length(model$lhs.rect) == 1) {
-      lhs.rect <- matrix(rep(0, 2*model$dim), ncol=2)
-      # create a box using empirical quantiles of the init.grid cloud
-      for (jj in 1:model$dim)
-        lhs.rect[jj,] <- quantile( init.grid[,jj], c(model$lhs.rect, 1-model$lhs.rect) )
-    } else { # already specified
-      lhs.rect <- model$lhs.rect
-    }
+    # candidates are based on a rectangle defined by empirical quantiles of the init.grid 
+    lhs.rect <- matrix(rep(0, 2*model$dim), ncol=2)
+    for (jj in 1:model$dim)
+        lhs.rect[jj,] <- quantile( init.grid[,jj], c(0.02, 0.98) )
     
-    # Candidate grid of potential NEW sites to add. 
+    # Candidate grid of potential NEW sites to add; only keep in-the-money sites
     # Will be ranked using the EI acquisition function
-    # only keep in-the-money sites
     ei.cands <- lhs( model$cand.len, lhs.rect )  # from tgp package
     ei.cands <- ei.cands[ model$payoff.func( ei.cands,model) > 0,,drop=F]
     
-    # initial design
+    # initial replicated design
     init.grid <- model$init.grid
     K0 <- dim(init.grid)[1]
-    # initial conditions for all the forward paths: replicated design with batch.nrep
     big.grid <- init.grid[ rep(1:K0, model$batch.nrep),]
     fsim <- forward.sim.policy( big.grid, M-i,fits[i:M],model, compact=T, offset=0)
     
     # payoff at t
     immPayoff <- model$payoff.func( init.grid, model)
     
-    # batched mean and variance
+    # batched mean and variance at each unique input site
     for (jj in 1:K0) {
-      all.X[jj,model$dim+1] <- mean( fsim$payoff[ 
-        jj + seq(from=0,len=model$batch.nrep,by=K0)]) - immPayoff[ jj]
-      all.X[jj,model$dim+2] <- var( fsim$payoff[ 
-        jj + seq(from=0,len=model$batch.nrep,by=K0)])
+      all.X[jj,model$dim+1] <- mean( fsim$payoff[jj + seq(from=0,len=model$batch.nrep,by=K0)]) 
+                  - immPayoff[ jj]
+      all.X[jj,model$dim+2] <- var( fsim$payoff[ jj + seq(from=0,len=model$batch.nrep,by=K0)])
     }
-    # use  first dim+1 columns for batched GP regression
     all.X[1:K0,1:model$dim] <- init.grid  
-    k <- K0
     batch_matrix[1:K0, i] <- model$batch.nrep
     
     # create the km object
     fits[[i]] <- km(y~0, design=data.frame(x=init.grid), 
-                    response=data.frame(y=all.X[1:k,model$dim+1]),
-                    noise.var=all.X[1:k,model$dim+2]/model$batch.nrep, 
+                    response=data.frame(y=all.X[1:K0,model$dim+1]),
+                    noise.var=all.X[1:K0,model$dim+2]/model$batch.nrep, 
                     covtype=model$kernel.family,
                     control=list(trace=F), 
-                    lower=model$min.lengthscale, 
-                    upper=model$max.lengthscale)
+                    lower=model$min.lengthscale, upper=model$max.lengthscale)
     
-    # initialize gamma for RB and MLB
-    gamma <- sqrt(mean(all.X[1:K0,model$dim+2])/model$batch.nrep) / 2
     r_batch = model$batch.nrep
     
-    # active learning loop
     add.more.sites <- TRUE
     k <- K0 + 1
     running_budget = model$batch.nrep*K0
     n <- K0 + 1
     
-    # active learning loop:
-    # to do it longer for later points to minimize error build-up use: *(1 + i/M)
+    # active learning loop
     while(add.more.sites)
     {
-      # predict on the candidate grid. 
-      # Need predictive GP mean, posterior GP variance and similation Stdev
+      # predict on the candidate grid, using GP mean and posterior GP variance
       pred.cands <- predict(fits[[i]],data.frame(x=ei.cands), type="UK")
       cand.mean <- pred.cands$mean
       cand.sd <- pred.cands$sd
@@ -200,13 +218,12 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
       
       losses <- cf.el(cand.mean, cand.sd)
       
-      # multiply by weights based on the distribution of pilot paths
-      dX_1 <- pilot.paths[[i]]; dX_2 <- ei.cands
+      # multiply by weights mu(x) based on the distribution of pilot paths
+      dX_1 <- pilot.paths[[i]]; dX_2 <- dX_1
       for (dd in 1:model$dim) {
         dX_1[,dd] <- dX_1[,dd]/(lhs.rect[dd,2]-lhs.rect[dd,1])
         dX_2[,dd] <- dX_2[,dd]/(lhs.rect[dd,2]-lhs.rect[dd,1])
       }
-      # from package lagp
       ddx <- distance( dX_1, dX_2)
       x.dens <- apply( exp(-ddx*dim(ei.cands)[1]*0.01), 2, sum)
       
@@ -243,20 +260,15 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
         x.dens2 <- x.dens2*dlnorm( ei.cands[,2], 
                                    meanlog=log(model$x0[2]) + 
                                      (model$r-model$div-0.5*model$sigma[2]^2)*i*model$dt,
-                                   sdlog = model$sigma[2]*sqrt(i*model$dt) )
+                              sdlog = model$sigma[2]*sqrt(i*model$dt) )
         
         # select site with highest EI score
-        if (model$ei.func != 'icu') {
-          ei.weights <- x.dens*al.weights
-        } else {
-          ei.weights<- al.weights # those are negative for ICU
-        }
-        
+        ei.weights <- x.dens*al.weights
         x_index <- which.max(ei.weights)
         add.grid <- ei.cands[x_index,,drop=F]
       }
       
-      # use active batching algorithms to select batch size
+      # use adaptive batching algorithms to select batch size
       if (model$batch.heuristic == 'fb') {
         r_batch = model$batch.nrep
       } else {
@@ -276,8 +288,7 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
       }
       
       if(is.null(add.grid) || model$batch.heuristic == 'ddsa' && k%%2) { # Reallocation
-        
-        # Indexes for inputs which receives further allocation
+        # Indices for inputs which receive further allocation
         idx_diff = which(r_batch != batch_matrix[1:(n - 1), i])
         r_seq_diff = r_batch[idx_diff] - batch_matrix[idx_diff, i]
         
@@ -287,7 +298,7 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
         newX <- all.X[idx_diff, 1:model$dim]
         newX <- matrix(unlist(mapply(rep, newX, r_seq_diff)), ncol = model$dim)
         
-        # compute corresponding y-values
+        # sample corresponding y-values
         fsim <- forward.sim.policy(newX, M-i, fits[i:M], model, compact=T, offset=0)
         
         # payoff at t
@@ -315,8 +326,7 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
                             response=data.frame(y=all.X[1:n - 1, model$dim+1]),
                             noise.var=all.X[1:n - 1,model$dim+2]/r_batch, 
                             covtype=model$kernel.family, control=list(trace=F),
-                            lower=model$min.lengthscale, 
-                            upper=model$max.lengthscale)
+                            lower=model$min.lengthscale, upper=model$max.lengthscale)
         } else {
             fits[[i]] <- update(fits[[i]], 
                                 newX=all.X[idx_diff, 1:model$dim, drop = F], 
@@ -355,7 +365,7 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
           }
         
         running_budget = running_budget + sum(r_batch)
-        n = n + 1
+        n <- n + 1
       }
       
       # resample the candidate set
@@ -373,8 +383,9 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
 }
 ```
 
-## Implementations for ABSUR
-This is the function used for ABSUR to select the new input $x_{n+1}$ and its associated batch size $r_{n+1}$. Basically we start with expanding a candidate matrix for both input (row-wise) and batch size (column-wise). Then eq. (12) is calculated over the cross-combination of input and batch size as a weight matrix returned by the function. In \textbf{osp.seq.batch.design.simplified}, the index of optimal candidate input and batch size is obtained by maximizing the weight function.
+## ABSUR details
+
+The code below implements the ABSUR algorithm to select the new input $x_{n+1}$ and its associated batch size $r_{n+1}$. Basically we start with expanding a candidate matrix for both input (row-wise) and batch size (column-wise). Then eq. (12) is calculated over the cross-combination of input and batch size as a weight matrix returned by the function. In \textbf{osp.seq.batch.design.simplified}, the index of optimal candidate input and batch size is obtained by maximizing the weight function.
 ```{r}
 cf.absur <- function(objMean, objSd, nugget, r_cand, overhead, t0) {
   # expand mean and sd vectors to matrix of size len(x_cand) * len(r_cand)
@@ -386,18 +397,39 @@ cf.absur <- function(objMean, objSd, nugget, r_cand, overhead, t0) {
 
   # EI at cross combination of candidate input and batch size
   nugget_matrix <- nugget / sqrt(r_matrix)
-  a = pnorm(-abs(objMean_matrix)/objSd_matrix)  # normalized distance to zero contour
+  d_cur = pnorm(-abs(objMean_matrix)/objSd_matrix)  # normalized distance to zero contour
   new_objSd2 <- nugget_matrix * objSd_matrix / 
     sqrt(nugget_matrix ^ 2 + objSd_matrix ^ 2) # new posterior variance
-  a_new <- pnorm(-abs(objMean_matrix)/new_objSd2)   # new distance to zero-contour
+  d_new <- pnorm(-abs(objMean_matrix)/new_objSd2)   # new distance to zero-contour
 
-  # difference between next-step ZC and current ZC weighted by the overhead
-  return( (a-a_new) / (r_matrix * t0 + overhead) )
+  # difference between next-step distance and current distance weighted by the overhead
+  return( (d_cur-d_new) / (r_matrix * t0 + overhead) )
 }
 ```
 
-## Implementations for ADSA
-This is the function used for ADSA to either calcuate the reallocation of replications over the existing inputs $\mathbf{x}_{1:k_n}$, or allocate all replications to one new input $x_{k_n+1}$. The inputs are \textit{fit} (the current GP simulator), \textit{r\_seq} (batch size vector for all existing inputs), \textit{xtest} (testing points), \textit{xt\_dens} (density of testing points), \textit{x\_new} (the new selected input), \textit{r0} (the total number of new replications), \textit{nugget} (estimated noise standard deviation $\tau$), and \textit{method} (the Gaussian Process model, such as, kriging, Student-$t$ Process or heteroscedastic GP). It firstly estimates the reallocation at existing inputs with function \textbf{batch.ddsa}. Then it calculates the loss for reallocation and adding a new input as defined in equations (19) and (21), and compares these two values. If we choose to reallocate the replications over the existing inputs $\mathbf{x}_{1:k_n}$, then the function returns a \texttt{NULL} value for the new input \textit{x\_optim}, and the new batch size vector for the existing inputs as \textit{r\_optim}; otherwise, the new input \textit{x\_optim} is \textit{x\_new}, and the associated batch size \textit{r\_optim} is \textit{r0}.
+## ADSA details
+
+In ADSA, we must  either calcuate the reallocation of replications over the existing inputs $\mathbf{x}_{1:k_n}$, or allocate all new replications to one new input $x_{k_n+1}$. The inputs are 
+
+* \textit{fit}: the current GP simulator;
+
+* \textit{r\_seq}: vector of batch sizes for existing inputs; 
+
+* \textit{xtest} : test points to approximate the integral;
+
+* \textit{xt\_dens}: density $\mu(\tilde{x}_i)$ at test points;
+
+* \textit{x\_new}: the new selected input;
+
+* \textit{r0} : number of new simulations in the batch;
+
+* \textit{nugget}: estimated noise standard deviation $\tau(x_{k_n+1})$;
+
+* \textit{method}: the Gaussian Process metamodel, such as kriging, Student-$t$ Process or heteroscedastic GP. 
+
+The function \textbf{batch.ddsa} (available upon request) first computes the additional allocation at existing inputs using the pegging algorithm. Then we calculate the expected loss metric of the above reallocation compared to the loss from adding a new input as defined in equations (19) and (21). 
+
+If we choose to reallocate the replications over the existing inputs $\mathbf{x}_{1:k_n}$, then the function returns a \texttt{NULL} value for the new input \textit{x\_optim}, and the new batch size vector for the existing inputs as \textit{r\_optim}; otherwise, it returns the new input \textit{x\_optim} is \textit{x\_new}, and the associated batch size \textit{r\_optim} is \textit{r0}.
 ```{r}
 batch.adsa <- function(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method) {
   x_optim = NULL
@@ -415,35 +447,13 @@ batch.adsa <- function(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method) {
   I1 = diag(t(v) %*% Delta_R %*% v)
 
   # i2 - adding a new input
-  if (method == "km" | method == "trainkm") {
-    x_all = rbind(xtest, fit@X, x_new)
-    C = covMatrix(fit@covariance, x_all)$C
-    k = C[1:nrow(xtest), (nrow(xtest) + nrow(fit@X) + 1)]
-    k_new = C[(nrow(xtest) + 1):(nrow(xtest) + nrow(fit@X)), 
-              (nrow(xtest) + nrow(fit@X) + 1)]
-  } else {
-    x_all = rbind(xtest, fit$X0, x_new)
-
-    if (method == "homtp") {
-      # Lower triangle matrix of covariance matrix
-      C <- hetGP::cov_gen(x_all, theta=fit$theta, type="Gaussian") * fit$sigma2
-    } else {
-      C <- hetGP::cov_gen(x_all, theta=fit$theta, type="Gaussian") * fit$nu_hat
-    }
-    k = C[1:nrow(xtest), (nrow(xtest) + nrow(fit$X0) + 1)]
-    k_new = C[(nrow(xtest) + 1):(nrow(xtest) + nrow(fit$X0)), 
-              (nrow(xtest) + nrow(fit$X0) + 1)]
-  }
-
-  if (method == "km" | method == "trainkm") {
-    ss = fit@covariance@sd2
-  } else {
-    if (method == 'homtp') {
-      ss = fit$sigma2
-    } else {
-      ss = fit$nu_hat
-    }
-  }
+  x_all = rbind(xtest, fit@X, x_new)
+  C = covMatrix(fit@covariance, x_all)$C
+  k = C[1:nrow(xtest), (nrow(xtest) + nrow(fit@X) + 1)]
+  k_new = C[(nrow(xtest) + 1):(nrow(xtest) + nrow(fit@X)), 
+            (nrow(xtest) + nrow(fit@X) + 1)]
+ 
+  ss = fit@covariance@sd2
 
   a = solve(t(L)) %*% (solve(L) %*% k_new)
   var_new = ss - t(k_new) %*% a
@@ -451,10 +461,10 @@ batch.adsa <- function(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method) {
   I2 = vec(cov) ^ 2 / (nugget^2 / r0 + var_new[1, 1])
 
   if (sum(I1 * xt_dens) > sum(I2 * xt_dens)) {
-    # allocate on existing samples
+    # allocate to existing samples
     r_optim = r_new
   } else {
-    # choose a new location
+    # go for a new location
     r_optim = r0
     x_optim = x_new
   }
@@ -462,9 +472,15 @@ batch.adsa <- function(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method) {
 }
 ```
 
-# Rescaled functions
+# C: Definitions of Syntethic Benchmarks
 ## Rescaled 2D Branin-Hoo Function
-We swap the two dimensions $x_1$ and $x_2$ in the original rescaled Branin-Hoo function and rescale it so that the function is monotonically decreasing along $x_1$, the mean of the function is $0$, and the variance is $1$ (based on 100,000 designs randomly selected).
+We swap the two dimensions $x_1$ and $x_2$ in the original Branin-Hoo function and rescale it so that:
+
+* the function is monotonically decreasing along $x_1$
+
+* the mean of the function is $0$
+
+* the variance is $1$ (empirically, based on 100,000 designs randomly selected).
 ```{r}
 braninsc <- function(xx)
 {
@@ -483,7 +499,7 @@ braninsc <- function(xx)
 ```
 
 ## Rescaled 6D Hartman Function
-We rescale 6D Hartman function so that the mean of the function is $0$, and the variance is $1$ (based on 100,000 designs randomly selected). Also we change the values of parameters $\alpha$ and $A$ to descrease the slope of the bumps and make the function more smoothly distributed.
+We rescale 6D Hartman function so that the mean of the function is $0$, and the variance is $1$ (based on 100,000 designs randomly selected). Also we change the values of parameters $\alpha$ and $A$ to descrease the slope of the bumps and make the function more evenly distributed around zero.
 ```{r}
 hart6sc <- function(xx)
 {
