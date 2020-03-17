@@ -3,7 +3,7 @@ title: "Supplementary Material for `Adaptive Batching Design with Application in
 output: pdf_document
 ---
 
-This RMarkdown document supplements the article "Adaptive Batching for Gaussian Process Surrogates with Application in Noisy Level Set Estimation". We provide 
+This RMarkdown document supplements the article "Adaptive Batching for Gaussian Process Surrogates with Application in Noisy Level Set Estimation". We provide: 
 
 * Code to reproduce Figure 6 in Section 6 of the paper that deals with Bermudan option pricing. 
 
@@ -11,7 +11,7 @@ This RMarkdown document supplements the article "Adaptive Batching for Gaussian 
 
 * Definitions of the rescaled 2D Branin-Hoo function and  the 6D Hartman function, which are used for synthetic experiments in Section 5.
 
-The R code is part of a larger GitHub library for Bermudan option pricing which can be provided upon request (withheld to maintain author identity for double-blind review process).
+The code is part of a larger R library for Bermudan option pricing which can be provided upon request (hosted on GitHub, link hidden to maintain author identity for double-blind review process).
 
 # A:  Visualizing Adaptive Batching for Bermudan Option Pricing
 
@@ -46,13 +46,14 @@ model2d <- list(x0 = rep(40,2),K=40,sigma=rep(0.2,2),r=0.06,
                 payoff.func=put.payoff, look.ahead=1, pilot.nsims=1000)
 
 model2d$cand.len <- 1000      # size of testing set m_0
-model2d$max.lengthscale <- c(40,40)  # bounds on lengthscales for the squared-exp kernel function
+model2d$max.lengthscale <- c(40,40)  # bounds on lengthscales for the squared-exp kernel
 model2d$min.lengthscale <- c(3,3)
 model2d$seq.design.size <- 100  # K_T
 model2d$batch.nrep <- 20      # initial replication r_0
 model2d$total.budget <- 2000  # budget N_T = r_0 * k = 2000
 model2d$init.size <- 20       # initial design size k_0
 model2d$init.grid <- int_2d   # initial grid: pre-loaded from the library
+model2d$t0 <- 0.01
 
 model2d$kernel.family <- "gauss"  # GP kernel function: squared-exponential
 model2d$update.freq <- 5      # frequency of re-fitting GP hyperparameters
@@ -66,13 +67,13 @@ To implement adaptive batching we need to specify the batch heuristic via \texti
 set.seed(110)
 model2d$batch.heuristic <- 'adsa'
 model2d$ei.func <- 'amcu'
-oos.obj.adsa <- osp.seq.batch.design.simplified(model2d, method="trainkm")
+oos.obj.adsa <- osp.seq.batch.design.simplified(model2d)
 
 ### GP + ABSUR
 set.seed(122)
 model2d$batch.heuristic <- 'absur'
 model2d$ei.func <- 'absur'
-oos.obj.absur <- osp.seq.batch.design.simplified(model2d, method="trainkm")
+oos.obj.absur <- osp.seq.batch.design.simplified(model2d)
 ```
 
 The objects \texttt{oos.obj.xxx} are lists that contain the GP metamodels for each time-step of the Bermudan option problem ($M=25$ in the example above). We visualize the fitted timing values at $t=0.6 = 15 \Delta t$. The respective zero contour is the \textit{exercise boundary}. 
@@ -80,7 +81,7 @@ The objects \texttt{oos.obj.xxx} are lists that contain the GP metamodels for ea
 The function \textbf{plt.2d.surf.with.batch} plots the fitted exercise boundary together with its 95\% credible interval (solid line and dashed curves, respectively). The inputs are shown as the dots and their color indicates the replication amounts $r_i$'s.  The first argument is the fitted GP emulator (including the fitted model and the input sites), and the second argument is the batch sizes corresponding to the selected input sites. 
 
 First we plot the figure for results obtained with ADSA.
-```{r, message=FALSE, warning=FALSE, fig.height=3.5, fig.width=6, fig.cap="Timing Value Exercise Boundary using ADSA"}
+```{r, message=FALSE, warning=FALSE, fig.height=3.5, fig.width=6, fig.cap="Timing Value (background color) and Exercise Boundary (zero-contour) at $t=0.6$ using ADSA"}
 oos.obj.adsa$ndesigns[15]  # number of unique designs
 ### plot Figure 6 right panel - ADSA
 plt.2d.surf.with.batch(oos.obj.adsa$fit[[15]], 
@@ -88,7 +89,7 @@ plt.2d.surf.with.batch(oos.obj.adsa$fit[[15]],
 ```
 
 The second one is for ABSUR
-```{r, message=FALSE, warning=FALSE,fig.height=3.5, fig.width=6, fig.cap="Timing Value Exercise Boundary using ABSUR"}
+```{r, message=FALSE, warning=FALSE,fig.height=3.5, fig.width=6, fig.cap="Timing Value and Exercise Boundary using ABSUR"}
 oos.obj.absur$ndesigns[15]  # number of unique designs
 ### plot Figure 6 left panel - ABSUR
 plt.2d.surf.with.batch(oos.obj.absur$fit[[15]], 
@@ -109,7 +110,7 @@ handles a variety of Gaussian Process metamodels (specified via \textit{method})
 
 * \texttt{ddsa}: Deterministic Batching Design with Stepwise Allocation
 
-The function's main input is \textit{model} which is the list defining the Bermudan option and GP parameters.  \textit{t0} is one of the overhead parameters in ABSUR.
+The function's main input is \textit{model} which is the list defining the Bermudan option and GP parameters.  
 
 During the backward dynamic programming loop indexed by \textit{i} we iterate over $t = T, T-\Delta t, \ldots, 0$ (a total of $M = T/\Delta t$ steps), and the simulator of $T(t,x)$ returns the difference between the pathwise payoff (\textit{fsim\$payoff} below) along a trajectory of $(\mathbf{X}_{t:T})$ that is based on the forward exercise strategy summarized by the forward-looking $\{\hat{\mathfrak{S}}_s, s > t\}$, and $h(t,x)$ (\texttt{immPayoff} in the function). 
 
@@ -127,7 +128,7 @@ detach("package:mlOSP", unload=TRUE)
 ```
 
 ```{r}
-osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
+osp.seq.batch.design.simplified <- function(model, method="trainkm")
 {
   M <- model$T/model$dt
   
@@ -234,7 +235,7 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
                                                 theta_for_optim[3], 
                                                 k + 1)
         al.weights <- cf.absur(cand.mean, cand.sd, nug, 
-                               r_interval, overhead, t0)
+                               r_interval, overhead, model$t0)
         
         # select site and replication with highest EI score
         x.dens.matrix <- matrix(x.dens, nrow=length(x.dens), ncol=length(r_interval))

@@ -3,20 +3,18 @@
 #'
 #' @details Implements the adaptive batching strategy defined in batch.heuristic with model defined in method. 
 #' @param method: \code{km} to select the GP emulator to apply
-#' @param t0: par \code{t0} in \code{ABSUR}
 #' @export
 #' @return a list containing:
 #' \code{fit} a list of fitted response surfaces
 #' \code{ndesigns}: number of design size k_T
 #' \code{batches}: matrix of replications r_i
-osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
+osp.seq.batch.design.simplified <- function(model, method="km")
 {
   #################
   #' @title Adaptive Batch design for optimal stopping (simplified version)
   #'
   #' @details Implements the adaptive batching strategy defined in batch.heuristic with model defined in method. 
   #' @param method: \code{km} to select the GP emulator to apply
-  #' @param t0: par \code{t0} in \code{ABSUR}
   #' @export
   #' @return a list containing:
   #' \code{fit} a list of fitted response surfaces
@@ -25,15 +23,15 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
   #' 
   M <- model$T/model$dt
   
-  # parameters in absur
-  r_lower = model$r.cand[1]
-  r_upper = min(model$r.cand[length(model$r.cand)], 0.1 * model$total.budget)
-  r_interval = seq(r_lower, r_upper, length = 1000)
-  theta_for_optim = c(0.1371, 0.000815, 1.9871E-6)  # c_{oh} in eq. (13)
+  # replication range in absur
+  r_lower <- model$r.cand[1]
+  r_upper <- min(model$r.cand[length(model$r.cand)], 0.1 * model$total.budget)
+  r_interval <- seq(r_lower, r_upper, length = 1000)
+  theta_for_optim <- c(0.1371, 0.000815, 1.9871E-6)  # c_{ovh} in eq. (13)
   batch_matrix <- matrix(rep(0, M*model$seq.design.size), ncol=M)
   
   # parameter in adsa and ddsa
-  c_batch = 20 / model$dim
+  c_batch <- 20 / model$dim
   
   fits <- list()   # list of emulator objects at each step
   pilot.paths <- list()
@@ -132,7 +130,7 @@ osp.seq.batch.design.simplified <- function(model, method="km", t0 = 0.01)
       # use active learning measure to select new sites and associated replication
       if (model$ei.func == 'absur') {
         overhead = 3 * model$dim * CalcOverhead(theta_for_optim[1], theta_for_optim[2], theta_for_optim[3], k + 1)
-        al.weights <- cf.absur(cand.mean, cand.sd, nug, r_interval, overhead, t0)
+        al.weights <- cf.absur(cand.mean, cand.sd, nug, r_interval, overhead, model$t0)
         
         # select site and replication with highest EI score
         x.dens.matrix <- matrix(x.dens, nrow=length(x.dens), ncol=length(r_interval))

@@ -4,25 +4,31 @@
 \alias{osp.seq.batch.design.simplified}
 \title{Adaptive Batch design for optimal stopping (simplified version)}
 \usage{
-osp.seq.batch.design.simplified(model, method = "km", t0 = 0.01)
+osp.seq.batch.design.simplified(model, method = "km")
 }
 \arguments{
 \item{method:}{\code{km} to select the GP emulator to apply}
 
-\item{t0:}{par \code{t0} in \code{ABSUR}}
+\item{method:}{\code{km} to select the GP emulator to apply}
 }
 \value{
 a list containing:
 \code{fit} a list of fitted response surfaces
-\code{timeElapsed} vector of time cost for each round
-\code{nsims} total number of 1-step sim.func calls
-\code{empLoss} vector of empirical losses
+\code{ndesigns}: number of design size k_T
+\code{batches}: matrix of replications r_i
+
+a list containing:
+\code{fit} a list of fitted response surfaces
 \code{ndesigns}: number of design size k_T
 \code{batches}: matrix of replications r_i
 }
 \description{
 Adaptive Batch design for optimal stopping (simplified version)
+
+Adaptive Batch design for optimal stopping (simplified version)
 }
 \details{
-Implements the adaptive batching strategy defined in model/batch.heuristic. Calls lhs (library \pkg{tgp}).
+Implements the adaptive batching strategy defined in batch.heuristic with model defined in method.
+
+Implements the adaptive batching strategy defined in batch.heuristic with model defined in method.
 }
