@@ -2,17 +2,18 @@
 % Please edit documentation in R/simFuncs.R
 \name{sim.ouExp}
 \alias{sim.ouExp}
-\title{Simulate from exponential OU}
+\title{Simulate from exponential Ornstein Uhlenbeck process}
 \usage{
 sim.ouExp(x0, model, dt = model$dt)
 }
 \arguments{
-\item{x0}{is the starting values}
+\item{x0}{is the starting values (vector)}
 
-\item{model}{contains all the other parameters}
+\item{model}{contains all the other parameters, including volatility \code{model$sigma}
+interest rate \code{model$r} and continuous dividend yield \code{model$div}}
 
 \item{dt}{is the step size}
 }
 \description{
-Simulate from exponential OU
+Simulate from exponential Ornstein Uhlenbeck process
 }

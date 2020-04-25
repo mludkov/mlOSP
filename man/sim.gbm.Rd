@@ -2,18 +2,19 @@
 % Please edit documentation in R/simFuncs.R
 \name{sim.gbm}
 \alias{sim.gbm}
-\title{Simulate paths of GBM}
+\title{Simulate paths of Geometric Brownian Motion with constant parameters}
 \usage{
 sim.gbm(x0, model, dt = model$dt)
 }
 \arguments{
-\item{x0}{is the starting values}
+\item{x0}{is the starting values (vector)}
 
-\item{model}{contains all the other parameters}
+\item{model}{contains all the other parameters, including volatility \code{model$sigma}
+interest rate \code{model$r} and continuous dividend yield \code{model$div}}
 
 \item{dt}{is the step size}
 }
 \description{
-Simulate from p(X_t|X_{t-1})
+Simulate from \eqn{p(X_t|X_{t-1})}
 Use log-normal transition density specified by the model
 }

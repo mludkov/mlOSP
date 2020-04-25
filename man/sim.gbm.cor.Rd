@@ -7,13 +7,15 @@
 sim.gbm.cor(x0, model, dt = model$dt)
 }
 \arguments{
-\item{x0}{is the starting values}
+\item{x0}{is the starting values (vector)}
 
-\item{model}{contains all the other parameters}
+\item{model}{contains all the other parameters.
+In particular, need \code{model$r, model$rho, model$sigma, model$div}
+Note that \code{model$sigma} is the \strong{volatility} parameter}
 
 \item{dt}{is the step size}
 }
 \description{
 Simulate correlated multivariate Geometric Brownian motion
-with a given \code{model$rho} and **identical** \code{model$sigma}'s
+with a given \code{model$rho} and \strong{identical} \code{model$sigma}'s
 }

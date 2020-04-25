@@ -1,13 +1,15 @@
 
 ####################################
-#' Simulate paths of GBM
+#' Simulate paths of Geometric Brownian Motion with constant parameters
 #'
-#' Simulate from p(X_t|X_{t-1})
+#' Simulate from \eqn{p(X_t|X_{t-1})}
 #' Use log-normal transition density specified by the model
-#' @param x0 is the starting values
+#' @param x0 is the starting values (vector)
 #' @param dt is the step size
-#' @param model contains all the other parameters
+#' @param model contains all the other parameters, including volatility \code{model$sigma}
+#' interest rate \code{model$r} and continuous dividend yield \code{model$div}
 #' @export
+#' @md
 sim.gbm <- function( x0, model, dt=model$dt)
 {
     len <- nrow(x0)
@@ -21,7 +23,7 @@ sim.gbm <- function( x0, model, dt=model$dt)
 }
 
 ####################################
-#' Simulate from exponential OU
+#' Simulate from exponential Ornstein Uhlenbeck process
 #' @inheritParams sim.gbm
 #' @export
 sim.ouExp <- function( x0, model, dt=model$dt)
@@ -38,15 +40,15 @@ sim.ouExp <- function( x0, model, dt=model$dt)
 }
 
 ####################################
-#' Simulate from 1-D discretized exponential OU
-#' See Bender (SIFIN 2011). Only works in 1D
+#' Simulate from 1-D discretized exponential Ornstein Uhlenbeck process
+#' See Bender (SIFIN 2011). Only works in one dimension
 #' @inheritParams sim.gbm
 #' @export
-#' @details requires
+#' @details Requires
 #' \itemize{
-#' \item  model$rho -- similar to mean-reversion rate, should be close to 1
-#' \item model$mu -- mean-reversion level
-#' \item model$sigma -- volatility
+#' \item  \code{model$rho} -- similar to mean-reversion rate, should be close to 1
+#' \item \code{model$mu} -- mean-reversion level
+#' \item \code{model$sigma} -- volatility
 #' }
 sim.logOU_Discrete <- function( x0, model, dt=model$dt)
 {
@@ -66,11 +68,11 @@ sim.logOU_Discrete <- function( x0, model, dt=model$dt)
 #' @inheritParams sim.gbm
 #' @export
 #' @param x0 should have 2 or 3 columns
-#' @section Usage:  need the following fields in model: svMean (mean-rev level), svAlpha (men-rev strength),
+#' @section Usage:  Need the following fields in model: \code{svMean} (mean-rev level), \code{svAlpha} (men-rev strength),
 #' svEpsY (fast scaling param), svVol (vol-vol), svRho (corr)
-#' for 2-factor also need: svMeanZ (slow scale mean-rev level), svAlphaZ (mean-rev strength), svDeltaZ (slow
-#' scaling param)
-#' svVolZ (Z vol), svRhoZ (corr between Z and S), svRhoYZ( corr between the 2 factors)
+#' for 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{svAlphaZ} (mean-reversion strength), \code{svDeltaZ} (slow
+#' scaling parameter)
+#' \code{svVolZ} (Z volatility), \code{svRhoZ} (correlation between Z and S), \code{svRhoYZ} ( correlation between the 2 factors)
 sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
 {
     len <- nrow(x0)
@@ -133,15 +135,19 @@ sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
 #'
 #' Simulate correlated multivariate Geometric Brownian motion
 #' with a given \code{model$rho} and **identical** \code{model$sigma}'s
+#' 
 #'
-#' @param x0 is the starting values
+#' @param x0 is the starting values (vector)
 #' @param dt is the step size
-#' @param model contains all the other parameters
+#' @param model contains all the other parameters.
+#' In particular, need \code{model$r, model$rho, model$sigma, model$div}
+#' Note that \code{model$sigma} is the **volatility** parameter
 #' @export
+#' @md
 sim.gbm.cor <- function( x0, model, dt=model$dt)
 {
     len <- nrow(x0)
-    sigm <- diag(model$sigma) + model$sigma[1]*model$rho*(1- diag(ncol(x0)))
+    sigm <- diag(model$sigma^2) + model$sigma[1]^2*model$rho*(1- diag(ncol(x0)))
 
     newX <- x0*exp( rmvnorm(len, sig=sigm)*sqrt(dt) +
             (model$r- model$div- model$sigma[1]^2/2)*dt)

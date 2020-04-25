@@ -2,27 +2,28 @@
 % Please edit documentation in R/simFuncs.R
 \name{sim.logOU_Discrete}
 \alias{sim.logOU_Discrete}
-\title{Simulate from 1-D discretized exponential OU
-See Bender (SIFIN 2011). Only works in 1D}
+\title{Simulate from 1-D discretized exponential Ornstein Uhlenbeck process
+See Bender (SIFIN 2011). Only works in one dimension}
 \usage{
 sim.logOU_Discrete(x0, model, dt = model$dt)
 }
 \arguments{
-\item{x0}{is the starting values}
+\item{x0}{is the starting values (vector)}
 
-\item{model}{contains all the other parameters}
+\item{model}{contains all the other parameters, including volatility \code{model$sigma}
+interest rate \code{model$r} and continuous dividend yield \code{model$div}}
 
 \item{dt}{is the step size}
 }
 \description{
-Simulate from 1-D discretized exponential OU
-See Bender (SIFIN 2011). Only works in 1D
+Simulate from 1-D discretized exponential Ornstein Uhlenbeck process
+See Bender (SIFIN 2011). Only works in one dimension
 }
 \details{
-requires
+Requires
 \itemize{
-\item  model$rho -- similar to mean-reversion rate, should be close to 1
-\item model$mu -- mean-reversion level
-\item model$sigma -- volatility
+\item  \code{model$rho} -- similar to mean-reversion rate, should be close to 1
+\item \code{model$mu} -- mean-reversion level
+\item \code{model$sigma} -- volatility
 }
 }

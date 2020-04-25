@@ -9,7 +9,8 @@ sim.expOU.sv(x0, model, dt = model$dt, useEuler = F)
 \arguments{
 \item{x0}{should have 2 or 3 columns}
 
-\item{model}{contains all the other parameters}
+\item{model}{contains all the other parameters, including volatility \code{model$sigma}
+interest rate \code{model$r} and continuous dividend yield \code{model$div}}
 
 \item{dt}{is the step size}
 }
@@ -17,10 +18,10 @@ sim.expOU.sv(x0, model, dt = model$dt, useEuler = F)
 Simulate an exp-OU stoch volatility model with 1 or 2 vol factors
 }
 \section{Usage}{
-  need the following fields in model: svMean (mean-rev level), svAlpha (men-rev strength),
+  Need the following fields in model: \code{svMean} (mean-rev level), \code{svAlpha} (men-rev strength),
 svEpsY (fast scaling param), svVol (vol-vol), svRho (corr)
-for 2-factor also need: svMeanZ (slow scale mean-rev level), svAlphaZ (mean-rev strength), svDeltaZ (slow
-scaling param)
-svVolZ (Z vol), svRhoZ (corr between Z and S), svRhoYZ( corr between the 2 factors)
+for 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{svAlphaZ} (mean-reversion strength), \code{svDeltaZ} (slow
+scaling parameter)
+\code{svVolZ} (Z volatility), \code{svRhoZ} (correlation between Z and S), \code{svRhoYZ} ( correlation between the 2 factors)
 }
 
