@@ -147,11 +147,60 @@ sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
 sim.gbm.cor <- function( x0, model, dt=model$dt)
 {
     len <- nrow(x0)
-    sigm <- diag(model$sigma^2) + model$sigma[1]^2*model$rho*(1- diag(ncol(x0)))
+    sigm <- diag(model$sigma^2) + kronecker(model$sigma,model$sigma)*model$rho*(1- diag(ncol(x0)))
 
     newX <- x0*exp( rmvnorm(len, sig=sigm)*sqrt(dt) +
             (model$r- model$div- model$sigma[1]^2/2)*dt)
 
     return (newX)
+}
+
+sim.gbm.matrix <- function( x0, model, dt=model$dt)
+{
+  len <- nrow(x0)
+  
+  newX <- x0*exp( rmvnorm(len, sig=model$sigma)*sqrt(dt) +
+                    (model$r- model$div- diag(model$sigma)/2)*dt)
+  
+  return (newX)
+}
+
+####################################
+#' Simulate 1D Brownian Motion for Asian Options
+#' first column is t, second column is S_t
+#' third column is A_t (arithmetic average)
+#' fourth column is tilde{A}_t (geometric average)
+#' @inheritParams sim.gbm
+#' @export
+sim.gbm.asian <- function( x0, model, dt=model$dt)
+{
+  len <- nrow(x0)
+  newX <- x0
+  
+  newX[,1] <- x0[,1]*exp( (model$r - 0.5*model$sigma^2)*dt + model$sigma*sqrt(dt)*rnorm(len))
+  newX[,2] <- x0[,2] + dt # time
+  newX[,3] <- x0[,3]*x0[,2]/newX[,2] + newX[,1]/newX[,2]  # (t-1)/t*A_{t-1} + S_t/t
+  newX[,4] <- exp( (x0[,2]/newX[,2]*log(x0[,4])) + log(newX[,1])/newX[,2])
+  
+  return (newX)
+}
+
+####################################
+#' Simulate 1D Brownian Motion for Moving Average Asian Options
+#' first column is S_t, other columns are lagged S_t's
+#' the lags are in terms of dt
+#' #' @inheritParams sim.gbm
+#' @export
+sim.gbm.moving.ave <- function( x0, model, dt=model$dt)
+{
+  len <- nrow(x0)
+  newX <- x0
+  
+  for (j in 2:ncol(x0))
+    newX[,j] <- x0[,j-1]
+  
+  newX[,1] <- x0[,1]*exp( (model$r - 0.5*model$sigma^2)*dt + model$sigma*sqrt(dt)*rnorm(len))
+  
+  return (newX)
 }
 

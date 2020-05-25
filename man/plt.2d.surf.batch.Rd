@@ -4,16 +4,8 @@
 \alias{plt.2d.surf.batch}
 \title{Visualize and compare 2D emulator + stopping region for two fits}
 \usage{
-plt.2d.surf.batch(
-  fit1,
-  fit2,
-  r1,
-  r2,
-  batch1,
-  batch2,
-  x = seq(31, 43, len = 201),
-  y = seq(31, 43, len = 201)
-)
+plt.2d.surf.batch(fit1, fit2, r1, r2, batch1, batch2, x = seq(31, 43, len
+  = 201), y = seq(31, 43, len = 201))
 }
 \arguments{
 \item{fit1, fit2}{can be any of the types supported by \code{\link{forward.sim.policy}}}

@@ -48,7 +48,7 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
       in.the.money <- 1:length(contNdx)  # predict everywhere since need q(t,x)
     else
      in.the.money <-  which( payoff[contNdx] > 0) 
-    if (length(in.the.money) >0) {
+    if (length(in.the.money) >0 & is.null( fit[[[i+1-offset]) == FALSE) {
       
       if (is(fit[[i+1-offset]],"earth") )
         rule <- predict(fit[[i+1-offset]],curX[contNdx[in.the.money],,drop=F]) # for use with  MARS

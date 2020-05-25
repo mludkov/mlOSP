@@ -35,5 +35,5 @@ modelSV5 <- list(K=100,x0=c(90, log(0.35)),r=0.0225,div=0,sigma=1,
    eulerDt=1/2520, dim=2,sim.func=sim.expOU.sv,nChildren=10,payoff.func=sv.put.payoff)
 putPr <- osp.probDesign.piecewisebw(20000,modelSV5)
 putPr$price
-  \# get [1] 17.30111
+  \\# get [1] 17.30111
 }

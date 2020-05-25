@@ -4,17 +4,9 @@
 \alias{plt.2d.surf.with.batch}
 \title{Visualize 2D emulator + stopping region + batch size}
 \usage{
-plt.2d.surf.with.batch(
-  fit,
-  batch_size,
-  x = seq(31, 43, len = 201),
-  y = seq(31, 43, len = 201),
-  ub = 1e+06,
-  show.var = FALSE,
-  only.contour = FALSE,
-  contour.col = "black",
-  ...
-)
+plt.2d.surf.with.batch(fit, batch_size, x = seq(25, 50, len = 201),
+  y = seq(25, 50, len = 201), ub = 1e+06, show.var = FALSE,
+  only.contour = FALSE, contour.col = "black", ...)
 }
 \arguments{
 \item{fit}{can be any of the types supported by \code{\link{forward.sim.policy}}}

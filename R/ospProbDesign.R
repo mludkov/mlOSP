@@ -94,6 +94,10 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
     # train only on in-the-money
     c.train <- train[which(immPayoff[train] > 0)]
     yVal <- contValue[c.train]-immPayoff[c.train]
+    if (length(c.train) == 0) { # all paths are out-of-the-money
+      contValue <- exp(-model$r*model$dt)*contValue
+      next
+    }
 
     ### CASES DEPENDING ON METHOD
     if (method == "spline" & ncol(grids[[i]]) == 1) { # only works in 1D

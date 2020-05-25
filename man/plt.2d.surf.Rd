@@ -4,15 +4,9 @@
 \alias{plt.2d.surf}
 \title{Visualize 2D emulator + stopping region}
 \usage{
-plt.2d.surf(
-  fit,
-  x = seq(31, 43, len = 201),
-  y = seq(31, 43, len = 201),
-  ub = 1e+06,
-  show.var = FALSE,
-  only.contour = FALSE,
-  contour.col = "red"
-)
+plt.2d.surf(fit, x = seq(31, 43, len = 201), y = seq(31, 43, len =
+  201), ub = 1e+06, show.var = FALSE, only.contour = FALSE,
+  contour.col = "red")
 }
 \arguments{
 \item{fit}{can be any of the types supported by \code{\link{forward.sim.policy}}}
