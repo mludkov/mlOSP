@@ -45,10 +45,8 @@
 #'  Emulator is trained only on paths where payoffs are strictly positive
 #' @examples
 #' set.seed(1)
-#' model2d <- list( seq.design.size=100,look.ahead=1,init.size=100,
-#'  ei.func='sur',cand.len=1000, batch.nrep=100,
-#'  K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
-#'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff)
+#' model2d <- list(look.ahead=1,K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,
+#'  div=0, T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff)
 #'  bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
 #'  model2d$bases <- bas22
 #'  prob.lm <- osp.prob.design(30000,model2d,method="lm",subset=1:15000)
@@ -312,10 +310,12 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       }
       else my.domain <- input.domain  #  user-specified box
       
-      if (is.null(model$min.lengthscale) )
-        model$min.lengthscale <- diff(my.domain)/100
+      if (is.null(model$min.lengthscale) & model$dim == 1 )
+        model$min.lengthscale <- (my.domain[2]-my.domain[1])/100
+      if (is.null(model$min.lengthscale) & model$dim > 1 )
+        model$min.lengthscale <- (my.domain[,2]-my.domain[,1])/100
       if (is.null(model$max.lengthscale) )
-        model$max.lengthscale <- diff(my.domain)
+        model$max.lengthscale <- 100*model$min.lengthscale
 
       # now choose how to space-fill
       if (is.null(model$qmc.method)) {

@@ -134,9 +134,10 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
 #' @param only.contour -- just add the zero-contour, no raster plot (uses \code{contour}, no ggplot)
 #' @param ub clip the surface with an upper bound  to see the zero-contour better
 #' @param contour.col (default is "red") -- color of the zero contour
+#' @param bases (only used for lm objects)
 #' @export
 plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6,
-                         show.var=FALSE, only.contour=FALSE, contour.col="red")
+                         show.var=FALSE, only.contour=FALSE, contour.col="red",bases=NULL)
 {
   gr <- expand.grid(x=x,y=y)
   
@@ -147,7 +148,7 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6
   if (is(fit,"dynaTree")  )
     obj <- predict(fit,cbind(gr$x,gr$y),quants=F)$mean
   if (is(fit,"lm") ) {
-    obj <-  fit$coefficients[1] + model$bases(cbind(gr$x,gr$y)) %*%
+    obj <-  fit$coefficients[1] + bases(cbind(gr$x,gr$y)) %*%
       fit$coefficients[2:length(fit$coefficients)]
   }
   
@@ -314,6 +315,33 @@ treeDivide.BW <- function(grid,curDim, model,test)
     fit.test <- predict(fit, data.frame(grid=test))
   }
   return (list(in.sample=fit.in,out.sample=fit.test))
+}
+
+
+############################################
+#' 1-d version of \code{\link{treeDivide.BW}} that stores all the local fits
+#' @inheritParams treeDivide.BW
+#' @export
+treeDivide.BW.1d <- function(grid,curDim, model, test)
+{
+  lenChild <- floor(dim(grid)[1]/model$nChildren)
+  fitchild <- array(0, dim(grid)[1])
+  fittest <- array(0, length(test))
+  lm.model <- list()
+  bounds <- array(0, model$nChildren)
+  
+  sorted <- sort(grid[,curDim],index.ret=T)$ix
+  for (j in 1:model$nChildren) {
+    ndxChild <- sorted[ (1+(j-1)*lenChild):(j*lenChild)]
+    test.ndx <- which( test > grid[sorted[ (1+(j-1)*lenChild)],curDim] & test <= grid[sorted[j*lenChild],curDim])
+    
+    bounds[j] <- max( grid[ndxChild,curDim])
+    mod <- lm(grid[ndxChild,])
+    lm.model[[j]] <- as.numeric(mod$coef)
+    fitchild[ndxChild] <- predict(mod)
+    fittest[test.ndx] <- predict(mod, data.frame(grid=test[test.ndx]))
+  }
+  return (list(in.sample=fitchild,out.sample=fittest,lm.model=lm.model,boundaries=bounds))
 }
 ######################################################################################
 

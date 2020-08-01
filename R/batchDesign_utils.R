@@ -264,7 +264,7 @@ pegging.alg <- function(r, U, r_seq) {
   r_new_int = round(r_new)
   if (sum(r_new_int == r_seq) == length(r_seq)) {
     idx_max = which(r_new == max(r_new[r_new != r_new_int]))
-    r_new_int(idx_max) = r_new_int(idx_max) + 1
+    r_new_int[idx_max] = r_new_int[idx_max] + 1
   }
   return(r_new_int)
 }

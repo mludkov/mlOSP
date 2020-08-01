@@ -102,7 +102,6 @@ osp.seq.design <- function(model,method="km")
       fits[[i]] <- km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
                         noise.var=all.X[1:k,model$dim+2]/model$batch.nrep,
                         control=list(trace=F), lower=model$min.lengthscale, covtype=model$kernel.family, 
-                        nugget.estim= TRUE,
                         coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var)
     if (method == "trainkm") {
       fits[[i]] <- km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
@@ -167,15 +166,14 @@ osp.seq.design <- function(model,method="km")
         al.weights <- cf.csur(cand.mean, cand.sd,nugget=nug)
       if (model$ei.func == 'icu') {
       # Integrated contour uncertainty with weights based on *Hard-coded* log-normal density
-        if (model$dim >= 2) {
-          x.dens2 <- dlnorm( ei.cands[,1], meanlog=log(model$x0[1])+(model$r-model$div - 0.5*model$sigma[1]^2)*i*model$dt,
-                        sdlog = model$sigma[1]*sqrt(i*model$dt) )
-          x.dens2 <- x.dens2*dlnorm( ei.cands[,2], meanlog=log(model$x0[2])+(model$r-model$div-0.5*model$sigma[2]^2)*i*model$dt,
-                              sdlog = model$sigma[2]*sqrt(i*model$dt) )
-        }
-        if (model$dim == 3) {
-          x.dens2 <- x.dens2*dlnorm( ei.cands[,3], meanlog=log(model$x0[3])+(model$r-model$div-0.5*model$sigma[3]^2)*i*model$dt,
-                                   sdlog = model$sigma[3]*sqrt(i*model$dt) )
+        x.dens2 <- dlnorm( ei.cands[,1], meanlog=log(model$x0[1])+(model$r-model$div - 0.5*model$sigma[1]^2)*i*model$dt,
+                           sdlog = model$sigma[1]*sqrt(i*model$dt) )
+        jdim <- 2
+        while (jdim <= model$dim ) {
+          
+          x.dens2 <- x.dens2*dlnorm( ei.cands[,jdim], meanlog=log(model$x0[jdim])+(model$r-model$div-0.5*model$sigma[jdim]^2)*i*model$dt,
+                              sdlog = model$sigma[jdim]*sqrt(i*model$dt) )
+          jdim <- jdim+1
         }
         #plot(ei.cands[,1], ei.cands[,2], cex=cf.mcu(cand.mean, cand.sd)*x.dens2*4000,pch=19)
       

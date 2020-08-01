@@ -12,7 +12,7 @@
 #' \code{empLoss} vector of empirical losses
 #' \code{ndesigns}: number of design size k_T
 #' \code{batches}: matrix of replications r_i
-osp.seq.batch.design <- function(model, method="km", t0 = 0.01)
+osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
 {
   M <- model$T/model$dt
   t.start <- Sys.time()
@@ -31,6 +31,8 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01)
   if (is.null(model$total.budget)) {
     model$total.budget = model$seq.design.size * model$batch.nrep
   }
+  if (is.null(model$c.batch))  # parameter for new replicates in adsa and ddsa
+        model$c.batch = 20 / model$dim
   if (is.null(model$r.cand)) {
     model$r.cand = c(model$batch.nrep, model$batch.nrep)
   }
@@ -40,8 +42,6 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01)
   theta_for_optim = c(0.1371, 0.000815, 1.9871E-6)  # c_{oh} in eq. (13)
   batch_matrix <- matrix(rep(0, M*model$seq.design.size), ncol=M)
 
-  # parameter in adsa and ddsa
-  c_batch = 20 / model$dim
 
   fits <- list()   # list of emulator objects at each step
   pilot.paths <- list()
@@ -228,18 +228,19 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01)
           al.weights <- cf.csur(cand.mean, cand.sd,nugget=nug / sqrt(model$batch.nrep))
         if (model$ei.func == 'icu' || model$batch.heuristic == 'adsa' || model$batch.heuristic == 'ddsa') {
           # Integrated contour uncertainty with weights based on *Hard-coded* log-normal density and create testing points
-          if (model$dim >= 2) {
+          if (is.gbm) {
             x.dens2 <- dlnorm( ei.cands[,1], meanlog=log(model$x0[1])+(model$r-model$div - 0.5*model$sigma[1]^2)*i*model$dt,
                                sdlog = model$sigma[1]*sqrt(i*model$dt) )
-            x.dens2 <- x.dens2*dlnorm( ei.cands[,2], meanlog=log(model$x0[2])+(model$r-model$div-0.5*model$sigma[2]^2)*i*model$dt,
-                                       sdlog = model$sigma[2]*sqrt(i*model$dt) )
-          }
-          if (model$dim == 3) {
-            x.dens2 <- x.dens2*dlnorm( ei.cands[,3], meanlog=log(model$x0[3])+(model$r-model$div-0.5*model$sigma[3]^2)*i*model$dt,
-                                       sdlog = model$sigma[3]*sqrt(i*model$dt) )
-          }
+            jdim <- 2
+            while (jdim <= model$dim) {
+              x.dens2 <- x.dens2*dlnorm( ei.cands[,jdim], meanlog=log(model$x0[jdim])+(model$r-model$div-0.5*model$sigma[jdim]^2)*i*model$dt,
+                                         sdlog = model$sigma[jdim]*sqrt(i*model$dt) )
+              jdim <- jdim+1
+            }
+          } else {
+            x.dens2 <- x.dens }
 
-          if (model$ei.func == 'icu') {
+          if (model$ei.func == 'icu' & method == "hetgp") {  # only works with hetGP
             kxprime <- cov_gen(X1 = fits[[i]]$X0, X2 = ei.cands, theta = fits[[i]]$theta, type = fits[[i]]$covtype)
             al.weights <- apply(ei.cands,1, crit_ICU, model=fits[[i]], thres = 0, Xref=ei.cands,
                                 w = x.dens2, preds = pred.cands, kxprime = kxprime)
@@ -262,7 +263,7 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01)
       if (model$batch.heuristic == 'fb') {
         r_batch = model$batch.nrep
       } else {
-        r0 = min(model$total.budget - running_budget, round(c_batch*sqrt(k)))
+        r0 = min(model$total.budget - running_budget, round(model$c.batch*sqrt(k)))
         if (model$batch.heuristic == 'rb') {
           rb_batch <- batch.rb(cand.sd[x_index], model$r.cand, r_batch, nug[x_index], gamma)
           r_batch <- min(rb_batch$roptim, model$total.budget - running_budget)
@@ -328,12 +329,12 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01)
         if (k %in% update.kernel.iters) {
           if (method == "km")
             fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n - 1, 1:model$dim]), response=data.frame(y=all.X[1:n - 1, model$dim+1]),
-                            noise.var=all.X[1:n - 1,model$dim+2]/r_batch, covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
+                            noise.var=all.X[1:n - 1,model$dim+2]/batch_matrix[1:(n - 1), i], covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
                             coef.var=model$km.var, control=list(trace=F),
                             lower=model$min.lengthscale,upper=model$max.lengthscale)
           if (method == "trainkm") {
             fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n - 1, 1:model$dim]), response=data.frame(y=all.X[1:n - 1, model$dim+1]),
-                            noise.var=all.X[1:n - 1,model$dim+2]/r_batch, covtype=model$kernel.family, control=list(trace=F),
+                            noise.var=all.X[1:n - 1,model$dim+2]/batch_matrix[1:(n - 1), i], covtype=model$kernel.family, control=list(trace=F),
                             lower=model$min.lengthscale, upper=model$max.lengthscale)
             theta.fit[i,n-model$init.size+1,] <- coef(fits[[i]])$range
           }
@@ -376,12 +377,12 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01)
         if (k %in% update.kernel.iters) {
           if (method == "km")
             fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n,1:model$dim]), response=data.frame(y=all.X[1:n,model$dim+1]),
-                            noise.var=all.X[1:n,model$dim+2]/r_batch, covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
+                            noise.var=all.X[1:n,model$dim+2]/batch_matrix[1:n,i], covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
                             coef.var=model$km.var, control=list(trace=F),
                             lower=model$min.lengthscale,upper=model$max.lengthscale)
           if (method == "trainkm") {
             fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n,1:model$dim]), response=data.frame(y=all.X[1:n,model$dim+1]),
-                            noise.var=all.X[1:n,model$dim+2]/r_batch, covtype=model$kernel.family, control=list(trace=F),
+                            noise.var=all.X[1:n,model$dim+2]/batch_matrix[1:n,i], covtype=model$kernel.family, control=list(trace=F),
                             lower=model$min.lengthscale, upper=model$max.lengthscale)
             theta.fit[i,n-model$init.size+1,] <- coef(fits[[i]])$range
           }
