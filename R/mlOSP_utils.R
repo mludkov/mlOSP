@@ -80,7 +80,6 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
       
       if (use.qv == TRUE & i== M) {
         payoff[contNdx] = payoff[contNdx] + rule  # continuation value of paths that didn't stop yet
-        #browser()
         break
       }
       
@@ -95,18 +94,20 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
       sims[[min(i,model$look.ahead+1)]] <- curX[contNdx,,drop=F]
       save.ndx[[min(i,model$look.ahead+1)]] <- contNdx
     }
-    # update the x values by taking a step of length dt
+    # update the x values by taking a step of length model$dt for those paths not exercised yet
     i <- i+1
     
-    if (is(x, "matrix") | is(x, "numeric") ) {
-      curX[contNdx,] <- model$sim.func( curX[contNdx,,drop=F],model,model$dt)
-      nsim <- nsim + length(contNdx)
+    if (length(contNdx) > 0) {
+      if (is(x, "matrix") | is(x, "numeric") ) {
+        curX[contNdx,] <- model$sim.func( curX[contNdx,,drop=F],model,model$dt )
+        nsim <- nsim + length(contNdx)
+      }
+      
+      if (is(x, "list") )  # stored list of paths
+        curX[contNdx,] <- x[[i]][contNdx,,drop=F]
+      # payoff for next timestep -- used for terminal payoff at i=M
+      payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
     }
-    
-    if (is(x, "list") )  # stored list of paths
-      curX[contNdx,] <- x[[i]][contNdx,,drop=F]
-    # payoff for next timestep -- used for terminal payoff at i=M
-    payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
   }
   for (i in 2:(model$look.ahead))   # payoff for a trajectory starting at x^n_{t+i} which was still alive then
     fvalue[[i]] <- payoff[ save.ndx[[i]] ]*exp((i-1)*model$dt*model$r)
@@ -563,7 +564,7 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
 }
 
 ##############
-swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1)
+swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=FALSE)
 {
   nsim <- 0
   if (is(x, "matrix") | is(x, "numeric") ) {
@@ -572,90 +573,156 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1)
   }
   if (is(x, "list" ) )
     curX <- x[[1]]
-  payoff <- rep(0, nrow(curX))
-  tau <- rep(0, nrow(curX))
+  payoff <- array(0, dim=c(nrow(curX), n.swing) )
+  tau <- array(0, dim=c(nrow(curX), n.swing) )
+  refract <- rep(0, nrow(curX))
+  refractN <- model$refract/model$dt
 
-  contNdx <- 1:nrow(curX)
   i <- 1
   if (n.swing <= 0)
-    return( list(payoff=payoff))
-  ns <- rep(n.swing, nrow(curX))  # remaining rights for each path
+    return( list(totPayoff=rep(0, nrow(curX))) )
+  
+  rightsLeft <- rep(n.swing, nrow(curX))  # remaining rights for each path
   
   # main loop forward
-  while (i < (M+(use.qv==TRUE)) & length(contNdx) > 0) {
+  while (i < (M+(use.qv==TRUE))) {
     for (kk in 1:n.swing) {  # loop over number of remaining paths
-      curNdx <- which( ns == kk)
+      curNdx <- which( rightsLeft == kk)
       if (length(curNdx) == 0)
-         continue
+        next
       # immediate payoff
-      myFit <- fit[[i+1-offset,kk]]; myx <- curX[curNdx,,drop=F]
-      imm  <- exp(-(i)*model$dt*model$r)*model$swing.payoff(myx , model$K)
-      if (is(myFit,"earth") )
+      myFit <- fit[[i+1-offset,kk]]; 
+      myx <- curX[curNdx,,drop=F]
+      
+      if (is(myFit,"earth") ) {
         rule <- predict(myFit,myx) # for use with  MARS
-      if (is(myFit,"smooth.spline") )
+        
+      }
+      if (is(myFit,"smooth.spline") ) {
         rule <- predict(myFit,myx)$y # for use with  splines
+        
+      }
       if (is(myFit,"randomForest") ) {
         obj <- predict(myFit,myx,predict.all=T)$individual
-        rule <- apply(obj,1,median)
+        rule <- apply(obj,1,median)  ############### randomForest uses median
+        
       }
       if (is(myFit,"dynaTree")  ){
         obj <- predict(myFit, myx,quants=F)
         rule <- obj$mean
+        
+        
       }
-      if (is(myFit,"km") ) # DiceKriging
+      if (is(myFit,"km") ) { # DiceKriging
         rule <- predict(myFit,data.frame(x=myx),type="UK")$mean
-      if (is(myFit,"gpi") )  # laGP
+        
+      }
+      if (is(myFit,"gpi") ) { # laGP
         rule <- predGP(myFit,XX=myx, lite=TRUE)$mean
+        
+      }
       if (is(myFit,"lm") ) {
         lenn <- length(myFit$coefficients)
         rule <-  myFit$coefficients[1] + model$bases(myx) %*% myFit$coefficients[2:lenn]
+        
       }
-      if( class(myFit)=="homGP" | class(myFit) == "hetGP" | class(myFit) == "homTP")
+      if( class(myFit)=="homGP" | class(myFit) == "hetGP" | class(myFit) == "homTP") {
         rule <- predict(x=myx, object=myFit)$mean
-      if( class(myFit)=="rvm")
+        
+      }
+      if( class(myFit)=="rvm") {
         rule <-  predict(myFit, new=myx)
-      if (class(myFit) == "npregression")
+        
+      }
+      if (class(myFit) == "npregression") {
         rule <- predict(myFit, new=myx)
-      
-      if (use.qv == TRUE & i== M) {
-        payoff[contNdx] = payoffCont[contNdx] + rule  # continuation value of paths that didn't stop yet)
-        break
+        
       }
       
-      # stop if the expected gain is negative
-      #contNdx <- contNdx[ which (rule > 0 | payoff[contNdx] == 0)]
-      if (length(which(rule <0)) > 0) {
-        stopKK <- which(rule <0)
-        payoff[ curNdx[stopKK]] <- payoff[ curNdx[stopKK]] + imm[ stopKK]
-        nS[ curNdx [stopKK]] <- nS[ curNdx[stopKK]] - 1
+      #if (i < M-refractPeriod) {
+      #  delayedFit <- fitVplusDelta[[min(M, i+1+refractN-offset),kk]]
+      #  refractPayoff <- ospPredict(delayedFit, myx, model)
+      #}
+      #else 
+      #  refractPayoff <- 0
+      
+      #imm  <- exp(-(i)*model$dt*model$r)*model$swing.payoff(myx , model) + refractPayoff
+      imm <- exp(-(i)*model$dt*model$r)*model$swing.payoff(myx , model) 
+      
+      # exercise if rule < 0 and no refraction left
+      if (length(which(rule <0 & refract[curNdx] == 0)) > 0) {
+        stopKK <- which(rule <0 & refract[curNdx] == 0)
+        payoff[ curNdx[stopKK], n.swing-kk+1] <- imm[stopKK]
+        tau[ curNdx[stopKK], n.swing-kk+1] <- i*model$dt
+        rightsLeft[ curNdx [stopKK]] <- kk - 1
+        refract[ curNdx[ stopKK]] <- model$refract
       }
-    }
-    tau[contNdx] <- (i)*model$dt
-    
-    if (compact == F) {
-      sims[[min(i,model$look.ahead+1)]] <- curX[contNdx,,drop=F]
-      save.ndx[[min(i,model$look.ahead+1)]] <- contNdx
-    }
+    }  #loop over kk
+  
     # update the x values by taking a step of length dt
     i <- i+1
+    if (verbose==TRUE)
+       browser()
     
     if (is(x, "matrix") | is(x, "numeric") ) {
-      curX[contNdx,] <- model$sim.func( curX[contNdx,,drop=F],model,model$dt)
-      nsim <- nsim + length(contNdx)
+      curX <- model$sim.func( curX,model,model$dt)
+      nsim <- nsim + nrow(curX)
     }
+    refract <- pmax(0, refract - model$dt)
     
     if (is(x, "list") )  # stored list of paths
-      curX[contNdx,] <- x[[i]][contNdx,,drop=F]
-    # payoff for next timestep -- used for terminal payoff at i=M
-    payoff[contNdx]  <- exp(-(i)*model$dt*model$r)*model$payoff.func( curX[contNdx,,drop=F], model)
+      curX <- x[[i]]
+    
   }
-  for (i in 2:(model$look.ahead))   # payoff for a trajectory starting at x^n_{t+i} which was still alive then
-    fvalue[[i]] <- payoff[ save.ndx[[i]] ]*exp((i-1)*model$dt*model$r)
-  
-  
-  return( list(payoff=payoff,sims=sims,fvalue=fvalue,tau=tau, nsims=nsim))
+  curNdx <- which( refract == 0 & rightsLeft > 0)
+  totPayoff = apply(payoff,1,sum)
+  totPayoff[curNdx] <- totPayoff[curNdx] + exp(-(M)*model$dt*model$r)*model$swing.payoff( curX[curNdx,,drop=F], model)
+
+  return( list(payoff=payoff,sims=nsim,tau=tau,totPayoff = totPayoff))
   # payoff is the resulting payoff NPV from t=0
   # fvalue[i] is a list of resulting payoffs (on paths still not stopped) NPV from t=i
   # tau are the times when stopped
   # sims is a list; sims[[i]] are the forward x-values of paths at t=i (those not stopped yet)
 }
+
+
+###########
+ospPredict <- function(myFit,myx,model)
+{
+  if (is(myFit,"earth") ) {
+    prediction <- predict(fit,myx) # for use with  MARS
+  }
+  if (is(myFit,"smooth.spline") ) {
+    prediction <- predict(myFit,myx)$y # for use with  splines
+  }
+  if (is(myFit,"randomForest") ) {
+    prediction <- predict( myFit, myx)
+  }
+  if (is(myFit,"dynaTree")  ){
+    prediction <- predict( myFit, myx, quants=F)$mean
+    
+  }
+  if (is(myFit,"km") ) { # DiceKriging
+    prediction <- predict(myFit,data.frame(x=myx),type="UK")$mean
+  }
+  if (is(myFit,"gpi") ) { # laGP
+    prediction <- predGP(myFit,XX=myx, lite=TRUE)$mean
+  }
+  if (is(myFit,"lm") ) {
+    lenn <- length(myFit$coefficients)
+    prediction <-  myFit$coefficients[1] + model$bases(myx) %*% myFit$coefficients[2:lenn]
+  }
+  if( class(myFit)=="homGP" | class(myFit) == "hetGP" | class(myFit) == "homTP") {
+    prediction <- predict(x=myx, object=myFit)$mean
+  }
+  if( class(myFit)=="rvm") {
+    prediction <-  predict(myFit, new=myx)
+  }
+  if (class(myFit) == "npregression") {
+    prediction <- predict(myFit, new=myx)
+  }
+  
+  return( prediction)
+  
+  
+}  

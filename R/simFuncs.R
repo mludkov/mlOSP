@@ -140,14 +140,15 @@ sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
 #' @param x0 is the starting values (vector)
 #' @param dt is the step size
 #' @param model contains all the other parameters.
-#' In particular, need \code{model$r, model$rho, model$sigma, model$div}
-#' Note that \code{model$sigma} is the **volatility** parameter
+#' In particular, need \code{model$r, model$rho, model$sigma, model$div, model$dim}
+#' Note that \code{model$sigma} is the **volatility** parameter (scalar)
 #' @export
 #' @md
 sim.gbm.cor <- function( x0, model, dt=model$dt)
 {
     len <- nrow(x0)
-    sigm <- diag(model$sigma^2) + kronecker(model$sigma,model$sigma)*model$rho*(1- diag(ncol(x0)))
+    sig <- rep(model$sigma[1], model$dim)
+    sigm <- diag(sig^2) + kronecker(sig,t(sig))*model$rho*(1- diag(model$dim))
 
     newX <- x0*exp( rmvnorm(len, sig=sigm)*sqrt(dt) +
             (model$r- model$div- model$sigma[1]^2/2)*dt)
@@ -155,6 +156,20 @@ sim.gbm.cor <- function( x0, model, dt=model$dt)
     return (newX)
 }
 
+####################################
+#' Simulate paths of correlated GBM
+#'
+#' Simulate correlated multivariate Geometric Brownian motion
+#' with a given \code{model$rho} and **identical** \code{model$sigma}'s
+#' 
+#'
+#' @param x0 is the starting values (vector)
+#' @param dt is the step size
+#' @param model contains all the other parameters.
+#' In particular, need \code{model$r, model$rho, model$sigma, model$div, model$dim}
+#' Note that \code{model$sigma} is the **volatility vector**
+#' @export
+#' @md
 sim.gbm.matrix <- function( x0, model, dt=model$dt)
 {
   len <- nrow(x0)

@@ -52,6 +52,9 @@ test.mlosp.batch.model <- function(test.set,model,method,batch,nReps,my.seed=101
 ```
 
 ## Two-dim basket put with homTP
+
+Basket Call with payoff $Z[i] = \max( \frac{S_1+S_2}{2} - K, 0)$ from section 4.3, page 20. The authors got 20.6 for their answer. The code below gets 20.2
+
 ```{r testing-homtp2d, message=FALSE, warning=FALSE}
 # load the 2d test set and int_2d which are the initial designs
 NN <- 16000

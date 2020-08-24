@@ -6,6 +6,7 @@
 #' \code{ei.func} which can be \code{csur} (Default), \code{sur}, \code{smcu}, \code{amcu},
 #' \code{tmse} and \code{icu}.
 #' @param method: one of \code{km}, \code{trainkm}, \code{homtp} or \code{hetgp} to select the GP emulator to apply
+#' @param init.size: size of starting grid (will be generated via lhs sampling if \code{init.grid} is not given)
 #' @export
 #' @return a list containing:
 #' \itemize{
@@ -25,6 +26,9 @@ osp.seq.design <- function(model,method="km")
      model$ei.func <- "csur"
   if (is.null(model$update.freq)) 
     model$update.freq <- 10
+  if (is.null(model$pilot.nsims))
+    model$pilot.nsims <- 5*model$init.size
+  
 
   fits <- list()   # list of emulator objects at each step
   pilot.paths <- list()
@@ -32,12 +36,11 @@ osp.seq.design <- function(model,method="km")
   update.kernel.iters <- seq(0,model$seq.design.size,by=model$update.freq)   # when to refit the whole GP
 
   # set-up a skeleton to understand the distribution of X
-  pilot.paths[[1]] <- model$sim.func( matrix(rep(model$x0[1:model$dim], 5*model$init.size),
-                                             nrow=5*model$init.size, byrow=T), model, model$dt)
+  pilot.paths[[1]] <- model$sim.func( matrix(rep(model$x0[1:model$dim], model$pilot.nsims),
+                                             nrow=model$pilot.nsims, byrow=T), model, model$dt)
   for (i in 2:(M-1))
     pilot.paths[[i]] <- model$sim.func( pilot.paths[[i-1]], model, model$dt)
   pilot.paths[[1]] <- pilot.paths[[3]]
-  init.grid <- pilot.paths[[M-1]]
   budget.used <- rep(0,M-1)
   theta.fit <- array(0, dim=c(M,model$seq.design.size-model$init.size+1,model$dim))
 
@@ -52,20 +55,24 @@ osp.seq.design <- function(model,method="km")
     if (length(model$lhs.rect) == 1)
     {
       lhs.rect <- matrix( rep(0, 2*model$dim), ncol=2)
-      # create a box using empirical quantiles of the init.grid cloud
+      # create a box using empirical quantiles of the pilot.paths cloud
       for (jj in 1:model$dim)
-        lhs.rect[jj,] <- quantile( init.grid[,jj], c(model$lhs.rect, 1-model$lhs.rect) )
+        lhs.rect[jj,] <- quantile( pilot.paths[[i]][,jj], c(model$lhs.rect, 1-model$lhs.rect) )
     }
     else   # already specified
       lhs.rect <- model$lhs.rect
       
-    if (is.null(model$min.lengthscale)) 
-       model$min.lengthscale <- rep(0.1, model$dim)      
+        
 
     # Candidate grid of potential NEW sites to add. Will be ranked using the EI acquisition function
     # only keep in-the-money sites
     ei.cands <- lhs( model$cand.len, lhs.rect )  # from tgp package
     ei.cands <- ei.cands[ model$payoff.func( ei.cands,model) > 0,,drop=F]
+    
+    if (is.null(model$min.lengthscale)) 
+      model$min.lengthscale <- 0.01*diff(t(lhs.rect))
+    if (is.null(model$max.lengthscale)) 
+      model$max.lengthscale <- 10*diff(t(lhs.rect)) 
 
     # initial design
     if (is.null(model$init.grid))
