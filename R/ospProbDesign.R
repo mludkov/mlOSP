@@ -197,9 +197,9 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 
 
 ####################################
-#' Batched non-adaptive design with a variety of regression methods
+#' RMC based on a batched non-adaptive design with a variety of regression methods
 #'
-#' @title Generic dynamic emulation with a non-sequential design
+#' @title Generic dynamic emulation of OSP with a non-sequential design
 #' @param input.domain: the domain of the emulator. Several options are available. Default in \code{NULL}
 #' All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 #' \itemize{
@@ -242,9 +242,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' 
 #' @examples
 #' set.seed(1)
-#' model2d <- list( seq.design.size=100,look.ahead=1,init.size=100,
-#'  ei.func='sur',cand.len=1000, batch.nrep=100,
-#'  K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
+#' model2d <- list(K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
 #'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff)
 #'  bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
 #'  model2d$bases <- bas22
@@ -418,12 +416,61 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
   return (list(fit=fits,timeElapsed=Sys.time()-t.start,nsims=cur.sim))
 }
 
-###########################
-# Swing fixed
+
+####################################
+#' Swing option solver based on a batched non-adaptive design with a variety of regression methods
+#'
+#' @title Generic dynamic emulation of a multiple-stopping problem with a non-sequential design
+#' @param input.domain: the domain of the emulator. Several options are available. Default in \code{NULL}
+#' All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
+#' \itemize{
+#' \item  NULL will use an empirical design (default);
+#' \item if a vector of length 2*model$dim then specifies the bounding rectangle
+#' \item a single positive number, then build a bounding rectangle based on the \eqn{\alpha}-quantile of the pilot paths
+#' \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
+#' \item a vector specifies the precise design, used as-is (\emph{overrides design size})
+#' }
+#' @param method: regression method to use (defaults to \code{km})
+#' \itemize{
+#' \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
+#' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
+#' \item lagp Local GP: use \pkg{laGP}
+#' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
+#' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
+#' \item spline: Smoothing Splines, use \code{smooth.spline}
+#' \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter
+#' \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
+#' \item lm: linear model from \pkg{stats}
+#' }
+#' @return a list containing:
+#' \itemize{
+#' \item \code{fit} a list containing all the models generated at each time-step. \code{fit[[1]]} is the emulator
+#' at \eqn{t=\Delta t}, the last one is \code{fit[[M-1]]} which is emulator for \eqn{T-\Delta t}.
+#' \item \code{val}: the in-sample pathwise rewards
+#' \item \code{test}: the out-of-sample pathwise rewards
+#' \item \code{p}: the final price (2-vector for in/out-of-sample)
+#' \item \code{timeElapsed} (based on \code{Sys.time})
+#' }
+#' @details Solves for a swing with \code{n.swing} exercise rights. The payoff function is 
+#' saved in \code{swing.payoff}. Also assumes a refraction period of \code{refract} between consecutive 
+#' exercises. The experimental design is based on  \code{\link{osp.fixed.design}}. By default, no forward evaluation is provided, ie the
+#' method only builds the emulators. Thus, to obtain an actual estimate of the value
+#' combine with \code{\link{swing.policy}}
+#' @export
+#' 
+#' @examples
+#' set.seed(1)
+#' swModel <- list(K=40,x0=40,sigma=0.3,r=0.05,div=0,
+#'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, swing.payoff=put.payoff)
+#'  bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
+#'  swModel$bases <- bas22
+#'  prob.lm <- swing.fixed.design(30000,model2d,method="lm",subset=1:15000)
+#'  prob.lm$price
 swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0)
 {
   M <- model$T/model$dt
   t.start <- Sys.time()
+  refractN <- model$refract/model$dt
   
   fits <- matrix(rep(list(),M*model$n.swing), nrow=M, ncol=model$n.swing)   # matrix of fits at each step
   grids <- list()
@@ -497,7 +544,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
       design.size[i] <- nrow(init.grid)
     }
     
-    init.grid <- init.grid[ model$payoff.func(init.grid, model) > inTheMoney.thresh,,drop=F]
+    init.grid <- init.grid[ model$swing.payoff(init.grid, model) > inTheMoney.thresh,,drop=F]
     
     design.size[i] <- dim(init.grid)[1]
     all.X <- matrix( rep(0, (model$dim+2)*design.size[i]), ncol=model$dim+2)
@@ -508,9 +555,16 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
     fsim <- swing.policy( big.grid, M-i,fits[i:M,],model,offset=0,n.swing=kk)
     #fsim <- policy.payoff( big.grid,(M-i)*model$dt/stop.freq,fits[i:M],model,offset=0,path.dt=stop.freq,interp=t.interp)
     # if use one now, have kk-1 left (possibly zero is ok)
-    immPayoff <- model$swing.payoff( big.grid, model$K) + swing.policy(big.grid, M-i, fits[i:M,],model,ofset=0,n.swing=kk-1)
-    qValue = fsim$payoff - immPayoff
-    cur.sim <- cur.sim + fsim$nsims
+    immPayoff <- model$swing.payoff( big.grid, model) 
+    #if (i < 30)
+    #   browser()
+    if (i+refractN < M & kk > 1) {
+        delayedPayoff <- swing.policy(big.grid, M-i-refractN, fits[(i+refractN):M,],model,offset=0,n.swing=kk-1)
+        immPayoff <- immPayoff + exp(-model$r*model$dt*refractN)*delayedPayoff$totPayoff
+        cur.sim <- cur.sim + delayedPayoff$nsims
+    }
+    qValue = fsim$totPayoff - immPayoff
+    cur.sim <- cur.sim + fsim$nsims #+ delayedPayoff$nsims
     
     # pre-averaged mean/variance
     for (jj in 1:design.size[i]) {
@@ -522,36 +576,36 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
     
     # create the km object
     if (method == "km")
-      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
+      fits[[i,kk]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
                                    noise.var=all.X[,model$dim+2]/n.reps, control=list(trace=F),
                                    coef.trend=0,coef.cov=model$km.cov, coef.var=model$km.var, covtype=model$kernel.family)
     else if (method =="trainkm")
-      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
+      fits[[i,kk]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
                                    control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
                                    noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
     
     else if (n.reps < 10 & method == "lagp")  # laGP library implementation
-      fits[[i]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
+      fits[[i,kk]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
                                 d=list(mle=FALSE, start=model$km.cov), g=list(start=1, mle=TRUE))
     else if(method =="hetgp") {
       hetData <- find_reps(big.grid, qValue)
-      fits[[i]] <- hetGP::mleHetGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
+      fits[[i,kk]] <- hetGP::mleHetGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
       #ehtPred <- predict(x=check.x, object=hetModel)
     }
     else if (method =="homgp") {
       hetData <- hetGP::find_reps(big.grid, qValue)
-      fits[[i]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
+      fits[[i,kk]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
     }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
-      fits[[i]] <- smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
+      fits[[i,kk]] <- smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
     else if (method == "rvm") {
       if (is.null(model$rvm.kernel))
         rvmk <- "rbfdot"
       else
         rvmk <- model$rvm.kernel
-      fits[[i]] <- rvm(x=init.grid, y=all.X[,model$dim+1],kernel=rvmk)
+      fits[[i,kk]] <- rvm(x=init.grid, y=all.X[,model$dim+1],kernel=rvmk)
     }
     else if (method == "npreg") {
       if (is.null(model$np.kertype))
@@ -567,7 +621,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
       else
         kerorder <- model$np.kerorder
       
-      fits[[i]] <- npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+      fits[[i,kk]] <- npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
                          regtype=regtype, ckertype=kertype,ckerorder=kerorder)
     }
   }  # end of loop over swing rights kk  
@@ -580,11 +634,11 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #' RMC using TvR along a fixed set of paths
 #' All designs are kept in memory
 #' @title Tsitsiklis van Roy algorithm with a variety of regression methods
-#' @param model defines the simulator and reward model, with the two main model hooks being payoff.func (plus parameters)
-#' and sim.func (plus parameters)
+#' @param model defines the simulator and reward model, with the two main model hooks being 
+#' \code{payoff.func} (plus parameters) and \code{sim.func} (plus parameters)
 #' @param N is the number of paths
 #' @param subset To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
-#' By default everything is in-sample
+#' By default everything is in-sample.
 #' @param x0 -- required part of the model. Can be either a vector of length \code{model$dim} 
 #' or a vector of length \code{model$dim}*N
 #' @param method a string specifying regression method to use
@@ -619,7 +673,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #'  
 #'  Calls \code{model$sim.func} to generate forward paths
 #'  
-#'  Emulator is trained on all paths
+#'  Emulator is trained on all paths, even those that are out-of-the-money
 
 ###############################
 osp.tvr <- function(N,model,subset=1:N,method="lm")
