@@ -1,13 +1,16 @@
 #############################
-#' RMC using probabilistic design: backpropagation along fixed set of paths (a la Longstaff-Schwartz)
-#' All designs are kept in memory
-#' @title Longstaff-Schwartz algorithm with a variety of regression methods
-#' @param model defines the simulator and reward model, with the two main model hooks being payoff.func (plus parameters)
-#' and sim.func (plus parameters)
+#' RMC using probabilistic design: backpropagation along fixed set of paths (a la Longstaff-Schwartz).
+#' All designs are kept in memory. By default produces only an in-sample estimate. Use in conjuction
+#' with \code{\link{forward.sim.policy}} to generate out-of-sample price estimates.
+#' 
+#' @title Longstaff-Schwartz RMC algorithm with a variety of regression methods.
+#' 
+#' @param model defines the simulator and reward model, with the two main model hooks being 
+#' option payoff  \code{payoff.func} (plus parameters) and stochastic simulator \code{sim.func} (plus parameters)
 #' @param N is the number of paths
-#' @param subset To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
+#' @param subset To have out-of-sample paths, specify \code{subset} (e.g 1:1000) to use for testing.
 #' By default everything is in-sample
-#' @param x0 -- required part of the model. Can be either a vector of length \code{model$dim} 
+#' @param x0 required part of the model. Can be either a vector of length \code{model$dim} 
 #' or a vector of length \code{model$dim}*N
 #' @param method a string specifying regression method to use
 #' \itemize{
@@ -16,12 +19,16 @@
 #'  and \code{rf.ntree} (number of trees) model parameters
 #'  \item loess: only works in \emph{1D or 2D}, requires \code{lo.span} model parameter
 #'  \item earth: multivariate regression splines (MARS) using \pkg{earth} package.
-#'  requires \code{earth.deg} (interaction degree), \code{earth.nk} (max number of terms to keep),
+#'  Requires \code{earth.deg} (interaction degree), \code{earth.nk} (max number of terms to keep),
 #'  \code{earth.thresh} params
 #'  \item rvm: relevance vector machine from \pkg{kernlab} package. Optional \code{rvm.kernel}
 #'  model parameter to decide which kernel family to utilize. Default kernel is rbfdot
-#'  \item npreg: kernel regression using \pkg{npreg}
-#'  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions (+ constant)
+#'  \item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
+#'  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
+#'  \item nnet: neural network using \pkg{nnet}. This is a single-layer neural net. Specify a scalar \code{nn.nodes} 
+#'  to describe the number of nodes at the hidden layer
+#'  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions 
+#'  (+ constant) which is a function pointer.
 #'  }
 #' @export
 #' @return a list containing
@@ -31,14 +38,14 @@
 #' \item \code{val}: the in-sample pathwise rewards
 #' \item \code{test}: the out-of-sample pathwise rewards
 #' \item \code{p}: the final price (2-vector for in/out-of-sample)
-#' \item \code{timeElapsed} (based on \code{Sys.time})
+#' \item \code{timeElapsed} total running time in seconds, based on \code{Sys.time}
 #' }
 #' @details
 #'  Works with a probabilistic design that requires storing all paths in memory. Specifying \code{subset}
 #'  allows to compute in parallel with the original computation an out-of-sample estimate of the value function
 #'  
-#'  Calls \code{model$payoff.func}, so the latter must be set prior to calling
-#'  Also needs model$dt and model$r for discounting
+#'  Calls \code{model$payoff.func}, so the latter must be set prior to calling.
+#'  Also needs \code{model$dt}, \code{model$T} for simulation and \code{model$r} for discounting
 #'  
 #'  Calls \code{model$sim.func} to generate forward paths
 #'  
@@ -130,6 +137,16 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
        all.models[[i]] <- earth(x=grids[[i]][c.train,,drop=F],y=yVal,
                                 degree=model$earth.deg,nk=model$earth.nk,thresh=model$earth.thresh)
        timingValue <- predict(all.models[[i]],grids[[i]])
+    }
+    if (method == "deepnet") {  # Neural Network via the deepnet library
+      all.models[[i]] <- nn.train(x=grids[[i]][c.train,,drop=F],y=yVal,
+                               hidden=model$nn.layers)
+      timingValue <- nn.predict(all.models[[i]],grids[[i]])
+    }
+    if (method == "nnet") {  # Neural Network via the nnet library
+      all.models[[i]] <- nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
+                              size=model$nn.nodes, linout=TRUE, maxit=1000,trace=FALSE)
+      timingValue <- predict(all.models[[i]],grids[[i]], type="raw")
     }
 
     if (method =="lm") {  # Linear regression with specified basis functions
@@ -227,10 +244,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \itemize{
 #' \item \code{fit} a list containing all the models generated at each time-step. \code{fit[[1]]} is the emulator
 #' at \eqn{t=\Delta t}, the last one is \code{fit[[M-1]]} which is emulator for \eqn{T-\Delta t}.
-#' \item \code{val}: the in-sample pathwise rewards
-#' \item \code{test}: the out-of-sample pathwise rewards
-#' \item \code{p}: the final price (2-vector for in/out-of-sample)
-#' \item \code{timeElapsed} (based on \code{Sys.time})
+#' \item \code{timeElapsed}: total running time based on \code{Sys.time}
 #' }
 #' @details The design can be replicated through \code{batch.nrep} model parameter. Replication allows to use
 #' nonparametric techniques which would be too expensive otherwise, in particular LOESS, GP and RVM.
@@ -238,16 +252,15 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, ie the
 #' method only builds the emulators. Thus, to obtain an actual estimate of the value
 #' combine with \code{\link{forward.sim.policy}}
+#' 
 #' @export
 #' 
 #' @examples
 #' set.seed(1)
 #' model2d <- list(K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
-#'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff)
-#'  bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
-#'  model2d$bases <- bas22
-#'  prob.lm <- osp.prob.design(30000,model2d,method="lm",subset=1:15000)
-#'  prob.lm$price
+#'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff,pilot.nsims=1000,
+#'  batch.nrep=100,kernel.family="matern5_2",N=400)
+#  kmSolve <- osp.fixed.design(model2d, input.dom=0.02,method="trainkm")
 osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0, stop.freq=model$dt)
 {
   M <- model$T/model$dt
@@ -652,6 +665,8 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #'  \code{earth.thresh} params
 #'  \item rvm: relevance vector machine from \pkg{kernlab} package. Optional \code{rvm.kernel}
 #'  model parameter to decide which kernel family to utilize. Default kernel is rbfdot
+#'  \item deepnet: neural network using \pkg{deepnet}. Specify \code{nn.layers} as a vector 
+#'  to describe the number of nodes across hidden layers
 #'  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions (+ constant)
 #'  }
 #' @export
@@ -743,7 +758,18 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
                                degree=model$earth.deg,nk=model$earth.nk,thresh=model$earth.thresh)
       timingValue <- predict(all.models[[i]],grids[[i]])
     }
+    if (method == "deepnet") {  # Neural Network via the deepnet library
+      all.models[[i]] <- nn.train(x=grids[[i]][c.train,,drop=F],y=yVal,
+                                  hidden=model$nn.layers)
+      timingValue <- nn.predict(all.models[[i]],grids[[i]])
+    }
+    if (method == "nnet") {  # Neural Network via the nnet library
+      all.models[[i]] <- nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
+                                  size=model$nn.nodes, linout=TRUE, maxit=1000,trace=FALSE)
+      timingValue <- predict(all.models[[i]],grids[[i]], type="raw")
+    }
     
+    # Default
     if (method =="lm") {  # Linear regression with specified basis functions
       matb <- model$bases(grids[[i]])
       all.models[[i]] <- lm(yVal ~ matb)

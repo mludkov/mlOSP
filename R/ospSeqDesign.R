@@ -1,12 +1,41 @@
 #################
+#' Regression Monte Carlo via sequential experimental design. The experimental design is augmented 
+#' one input at a time, using an Expected Improvement (EI) acquisition function. This is repeated at
+#' each time step. The method is likely to be somewhat slow, but highly efficient in its use of underlying
+#' simulations. See Gramacy & Ludkovski (2013), Ludkovski (2018) for details.
+#' 
+#' EI criteria are based on posterior and/or predictive variance and therefore require the use of a 
+#' Gaussian-process based surrogate (currently from \pkg{DiceKriging} or \pkg{hetGP}).
+#' 
 #' @title Sequential design for optimal stopping
 #'
-#' @details Implements the EI strategy defined in model/ei.func. Calls \code{lhs} from library \pkg{tgp}.
+#' @details Implements the EI strategy defined in \code{model$ei.func}. Calls \code{lhs} from library \pkg{tgp}.
 #' Empirical losses are computed using \code{cf.el} function. The acquisition function is specified via
 #' \code{ei.func} which can be \code{csur} (Default), \code{sur}, \code{smcu}, \code{amcu},
 #' \code{tmse} and \code{icu}.
+#' 
+#' The experimental design is initialized via init.size/init.grid parameters and then is grown 
+#' one input-at-a-time until it is of size \code{model$seq.design.size}. Thus, there are a total of 
+#' seq.design.size-init.size sequential iterations.
+#' 
+#' The following model parameters are used:
+#' \itemize{
+#' \item init.size: size of starting grid (will be generated via lhs sampling if \code{init.grid} is not given)
+#' \item pilot.nsims: number of pilot simulations to create the search space where new inputs will be added
+#' (Default is 5*model$init.size)
+#' \item cand.len: number of candidate new inputs to be proposed. The next input is chosen greedily as
+#' the candidate that maximizes the EI criterion. Candidate inputs are selected via \code{tgp::lhs}
+#' (Default is 500*model$dim)
+#' \item lhs.rect: specification of the bounding hyper-rectangle where search is conducted
+#' (Default: construct based on 0.02/0.98 quantiles of the pilot paths in each dimension)
+#' \item update.freq: how often to re-fit the entire GP surrogate as new inputs are added (Default is 10)
+#' \item batch.nrep (REQUIRED): number of replicates at each unique input
+#' \item min.lengthscale: minimum lengthscale of the surrogate (Default: 1% of lhs.rect dimensions)
+#' \item max.lengthscale: maximum lengthscale of the surrogate (Default: 10x each of lhs.rect dimensions)
+#' \item ei.func: acquisition function (cSUR by Default)
+#' }
+#' 
 #' @param method: one of \code{km}, \code{trainkm}, \code{homtp} or \code{hetgp} to select the GP emulator to apply
-#' @param init.size: size of starting grid (will be generated via lhs sampling if \code{init.grid} is not given)
 #' @export
 #' @return a list containing:
 #' \itemize{
@@ -28,7 +57,8 @@ osp.seq.design <- function(model,method="km")
     model$update.freq <- 10
   if (is.null(model$pilot.nsims))
     model$pilot.nsims <- 5*model$init.size
-  
+  if (is.null(model$cand.len))
+    model$cand.len <- 500*model$dim
 
   fits <- list()   # list of emulator objects at each step
   pilot.paths <- list()

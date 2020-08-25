@@ -52,6 +52,10 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
       
       if (is(fit[[i+1-offset]],"earth") )
         rule <- predict(fit[[i+1-offset]],curX[contNdx[in.the.money],,drop=F]) # for use with  MARS
+      if (is(fit[[i+1-offset]],"deepnet") )
+        rule <- nn.predict(fit[[i+1-offset]],curX[contNdx[in.the.money],,drop=F]) # for use with deepnet
+      if (is(fit[[i+1-offset]],"nnet") )
+        rule <- predict(fit[[i+1-offset]],curX[contNdx[in.the.money],,drop=F], type="raw") # for use with nnet
       if (is(fit[[i+1-offset]],"smooth.spline") )
         rule <- predict(fit[[i+1-offset]],curX[contNdx[in.the.money],,drop=F])$y # for use with  splines
       if (is(fit[[i+1-offset]],"randomForest") ) {
@@ -482,6 +486,8 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
       
       if (is(fit[[fit.ndx]],"earth") )
         rule <- predict(fit[[fit.ndx]],curX[contNdx[in.the.money],,drop=F]) # for use with  MARS
+      if (is(fit[[fit.ndx]],"deepnet") )
+        rule <- nn.predict(fit[[fit.ndx]],curX[contNdx[in.the.money],,drop=F]) # for use with  deepnet
       if (is(fit[[fit.ndx]],"smooth.spline") )
         rule <- predict(fit[[fit.ndx]],curX[contNdx[in.the.money],,drop=F])$y # for use with  splines
       if (is(fit[[fit.ndx]],"randomForest") ) {
@@ -598,6 +604,14 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=
         rule <- predict(myFit,myx) # for use with  MARS
         
       }
+      if (is(myFit,"deepnet") ) {
+        rule <- nn.predict(myFit,myx) # for use with deepnet
+        
+      }
+      if (is(myFit,"nnet") ) {
+        rule <- predict(myFit,myx,type="raw") # for use with nnet
+        
+      }
       if (is(myFit,"smooth.spline") ) {
         rule <- predict(myFit,myx)$y # for use with  splines
         
@@ -691,6 +705,12 @@ ospPredict <- function(myFit,myx,model)
 {
   if (is(myFit,"earth") ) {
     prediction <- predict(fit,myx) # for use with  MARS
+  }
+  if (is(myFit,"deepnet") ) {
+    prediction <- predict(fit,myx) # for use with deepnet
+  }
+  if (is(myFit,"nnet") ) {
+    prediction <- predict(fit,myx,type="raw") # for use with nnet
   }
   if (is(myFit,"smooth.spline") ) {
     prediction <- predict(myFit,myx)$y # for use with  splines

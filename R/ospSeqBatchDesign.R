@@ -278,6 +278,7 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
           adsa_batch <- batch.adsa(fits[[i]], batch_matrix[1:(n - 1), i], ei.cands, x.dens2, add.grid, r0, nug, method)
           add.grid <- adsa_batch$x_optim
           r_batch <- adsa_batch$r_optim
+          #browser()
         }
         if (model$batch.heuristic == 'ddsa') {
           if (k%%2) {
