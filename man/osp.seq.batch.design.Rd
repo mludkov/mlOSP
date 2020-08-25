@@ -4,7 +4,7 @@
 \alias{osp.seq.batch.design}
 \title{Adaptive Batch design for optimal stopping}
 \usage{
-osp.seq.batch.design(model, method = "km", t0 = 0.01)
+osp.seq.batch.design(model, method = "km", t0 = 0.01, is.gbm = FALSE)
 }
 \arguments{
 \item{method:}{either \code{km} or \code{hetgp} to select the GP emulator to apply}

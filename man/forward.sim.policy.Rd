@@ -4,8 +4,15 @@
 \alias{forward.sim.policy}
 \title{Forward simulation based on a sequence of emulators}
 \usage{
-forward.sim.policy(x, M, fit, model, offset = 1, compact = TRUE,
-  use.qv = FALSE)
+forward.sim.policy(
+  x,
+  M,
+  fit,
+  model,
+  offset = 1,
+  compact = TRUE,
+  use.qv = FALSE
+)
 }
 \arguments{
 \item{x}{is a matrix of starting values

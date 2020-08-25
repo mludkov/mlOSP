@@ -8,8 +8,6 @@ osp.seq.batch.design.simplified(model, method = "km")
 }
 \arguments{
 \item{method:}{\code{km} to select the GP emulator to apply}
-
-\item{method:}{\code{km} to select the GP emulator to apply}
 }
 \value{
 a list containing:

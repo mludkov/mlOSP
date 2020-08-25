@@ -9,11 +9,11 @@ osp.tvr(N, model, subset = 1:N, method = "lm")
 \arguments{
 \item{N}{is the number of paths}
 
-\item{model}{defines the simulator and reward model, with the two main model hooks being payoff.func (plus parameters)
-and sim.func (plus parameters)}
+\item{model}{defines the simulator and reward model, with the two main model hooks being 
+\code{payoff.func} (plus parameters) and \code{sim.func} (plus parameters)}
 
 \item{subset}{To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
-By default everything is in-sample}
+By default everything is in-sample.}
 
 \item{method}{a string specifying regression method to use
 \itemize{
@@ -26,6 +26,8 @@ By default everything is in-sample}
  \code{earth.thresh} params
  \item rvm: relevance vector machine from \pkg{kernlab} package. Optional \code{rvm.kernel}
  model parameter to decide which kernel family to utilize. Default kernel is rbfdot
+ \item deepnet: neural network using \pkg{deepnet}. Specify \code{nn.layers} as a vector 
+ to describe the number of nodes across hidden layers
  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions (+ constant)
  }}
 
@@ -56,5 +58,5 @@ Works with a probabilistic design that requires storing all paths in memory. Spe
  
  Calls \code{model$sim.func} to generate forward paths
  
- Emulator is trained on all paths
+ Emulator is trained on all paths, even those that are out-of-the-money
 }
