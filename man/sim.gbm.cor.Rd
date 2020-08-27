@@ -2,7 +2,7 @@
 % Please edit documentation in R/simFuncs.R
 \name{sim.gbm.cor}
 \alias{sim.gbm.cor}
-\title{Simulate paths of correlated GBM}
+\title{Simulate paths of correlated GBM with a constant correlation}
 \usage{
 sim.gbm.cor(x0, model, dt = model$dt)
 }
@@ -16,6 +16,9 @@ Note that \code{model$sigma} is the \strong{volatility} parameter (scalar)}
 \item{dt}{is the step size}
 }
 \description{
+Simulate paths of correlated GBM with a constant correlation
+}
+\details{
 Simulate correlated multivariate Geometric Brownian motion
 with a given \code{model$rho} and \strong{identical} \code{model$sigma}'s
 }

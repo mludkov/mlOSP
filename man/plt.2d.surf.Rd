@@ -2,7 +2,7 @@
 % Please edit documentation in R/mlOSP_utils.R
 \name{plt.2d.surf}
 \alias{plt.2d.surf}
-\title{Visualize 2D emulator + stopping region}
+\title{Visualize a 2D emulator + stopping region}
 \usage{
 plt.2d.surf(
   fit,
@@ -32,9 +32,14 @@ This only works for \code{km} and \code{het/homGP/homTP} objects}
 
 \item{bases}{(only used for lm objects)}
 }
+\value{
+a ggplot handle for the created plot.
+}
 \description{
-Two-dimensional raster+contour+point plot
+Two-dimensional raster+contour+point plot of an mlOSP emulator at a single time step.
 }
 \details{
-Uses the raster plot from \pkg{ggplot2}
+Uses the raster plot from \pkg{ggplot2}. For GP-based objects, also shows the unique design
+sites via geom_point. See \code{\link{also plt.2d.surf.batch}} for a similar plot 
+for \code{osp.seq.batch.design} emulators.
 }

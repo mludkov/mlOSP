@@ -1,22 +1,26 @@
 ##########################################
 #' Longstaff Schwartz Algorithm using Bouchard-Warin method
 #'
-#' Uses the Bouchard-Warin recursive partitioning to created N-d trees
-#' for local linear regression fits
-#' @param N     is the number of paths
-#' @param model must contain the following fields: \code{T, dt, dim, nChildren},
-#'        \code{sim.func, x0, r}
-#' @param verb if specified, produces plots of the 1-dim fit every verb time-steps
+#' Uses the Bouchard-Warin recursive partitioning to create N-d trees
+#' for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.
+#' @details Calls \link{treeDivide.BW} to create the equi-probably partitions.
+#' Must have N/model$nChildren^model$dim as an integer.
+#' 
+#' @param N     is the number of paths. 
+#' @param model a list that must contain the following fields: \code{T, dt, dim, nChildren},
+#'        \code{sim.func, x0, r, payoff.func}
+#' @param verb if specified, produces plots of the 1-dim fit every \code{verb} time-steps
 #' [default is zero]
-#' @param test.paths: out of sample paths to obtain a price estimate
+#' @param test.paths: (optional) a list containing out-of-sample paths to obtain a price estimate
 #'       
 #'   @return a list with the following fields:
-#'  \code{price} is the scalar optimal reward;
-#'  \code{tau} is a vector of stopping times over in-sample paths;
-#'  \code{test} is a vector of out-of-sample pathwise rewards;
-#'  \code{val} is a vector of in-sample pathwise rewards
-#'  \code{timeElapsed} timing information based on \code{Sys.time}
-#'
+#'   \itemize{
+#' \item \code{price} is the scalar optimal reward;
+#' \item \code{tau} is a vector of stopping times over in-sample paths;
+#' \item \code{test} is a vector of out-of-sample pathwise rewards;
+#' \item \code{val} is a vector of in-sample pathwise rewards
+#' \item \code{timeElapsed} total running time based on \code{Sys.time}
+#' }
 #' @examples
 #' set.seed(1)
 #' modelSV5 <- list(K=100,x0=c(90, log(0.35)),r=0.0225,div=0,sigma=1,
@@ -33,15 +37,14 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
   M <- model$T/model$dt
   grids <- list()
   preds <- list()
-  meanPrice <- rep(0,M)
-  bnd <- array(0, dim=c(M,3))  
-  # used for 1-D case, saves the stopping boundary for each time step
-  bnd[M,] <- c(model$K,model$K,N)
   
   # in 1-d save all the models to analyze the fits
   if (model$dim == 1) {
     all.models <- array(list(NULL), dim=c(M,model$nChildren))
     all.bounds <- array(0, dim=c(M,model$nChildren))
+    bnd <- array(0, dim=c(M,3))  
+    # used for 1-D case, saves the stopping boundary for each time step
+    bnd[M,] <- c(model$K,model$K,N)
   }
 
   # Build the grids from a global simulation of X_{1:T}
@@ -59,7 +62,6 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
   # initialize the continuation values/stopping times
   contValue <- exp(-model$r*model$dt)*model$payoff.func( grids[[M]], model)
   tau <- rep(model$T, N)
-  meanPrice[M] <- mean(contValue)  # average price along paths (for debugging purpose)
   test.value <- exp(-model$r*model$dt)*model$payoff.func(test.paths[[M]], model)
   
   ###### Main loop: Backward step in time
@@ -104,7 +106,6 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
     contValue[stopNdx] <- immPayoff[stopNdx]
     contValue <- exp(-model$r*model$dt)*contValue
     tau[stopNdx] <- i*model$dt
-    meanPrice[i] <- mean(contValue)
     
     # paths on which stop out-of-sample
     stop.test <- which( test.tv <= 0 & test.payoff > 0)

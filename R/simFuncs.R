@@ -2,12 +2,13 @@
 ####################################
 #' Simulate paths of Geometric Brownian Motion with constant parameters
 #'
-#' Simulate from \eqn{p(X_t|X_{t-1})}
-#' Use log-normal transition density specified by the model
-#' @param x0 is the starting values (vector)
-#' @param dt is the step size
+#' @details Simulate from \eqn{p(X_t|X_{t-1})}
+#' Use log-normal transition density specified by the \code{model}
+#' @param x0 is the starting values (matrix of size N x model$dim)
+#' @param dt is the step size in time. Defaults to \code{model$dt}
 #' @param model contains all the other parameters, including volatility \code{model$sigma}
 #' interest rate \code{model$r} and continuous dividend yield \code{model$div}
+#' @return a vector of same dimensions as x0
 #' @export
 #' @md
 sim.gbm <- function( x0, model, dt=model$dt)
@@ -131,9 +132,9 @@ sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
 }
 
 ####################################
-#' Simulate paths of correlated GBM
+#' Simulate paths of correlated GBM with a constant correlation
 #'
-#' Simulate correlated multivariate Geometric Brownian motion
+#' @details Simulate correlated multivariate Geometric Brownian motion
 #' with a given \code{model$rho} and **identical** \code{model$sigma}'s
 #' 
 #'
@@ -159,15 +160,17 @@ sim.gbm.cor <- function( x0, model, dt=model$dt)
 ####################################
 #' Simulate paths of correlated GBM
 #'
-#' Simulate correlated multivariate Geometric Brownian motion
-#' with a given \code{model$rho} and **identical** \code{model$sigma}'s
+#' @details Simulate correlated multivariate Geometric Brownian motion
+#' with a given \code{model$rho} and arbitrary \code{model$sigma}'s. Calls rmvnorm
+#' from \pkg{mvtnorm}
 #' 
 #'
-#' @param x0 is the starting values (vector)
-#' @param dt is the step size
+#' @param x0 is the starting values. Should be a matrix of size N x model$dim)
+#' @param dt is the step size [Defaults to model$dt]
 #' @param model contains all the other parameters.
 #' In particular, need \code{model$r, model$rho, model$sigma, model$div, model$dim}
 #' Note that \code{model$sigma} is the **volatility vector**
+#' @return a vector of the new states (same dimension as x0)
 #' @export
 #' @md
 sim.gbm.matrix <- function( x0, model, dt=model$dt)
@@ -182,7 +185,7 @@ sim.gbm.matrix <- function( x0, model, dt=model$dt)
 
 ####################################
 #' Simulate 1D Brownian Motion for Asian Options
-#' first column is t, second column is S_t
+#' @details first column is t, second column is S_t
 #' third column is A_t (arithmetic average)
 #' fourth column is tilde{A}_t (geometric average)
 #' @inheritParams sim.gbm
@@ -202,9 +205,9 @@ sim.gbm.asian <- function( x0, model, dt=model$dt)
 
 ####################################
 #' Simulate 1D Brownian Motion for Moving Average Asian Options
-#' first column is S_t, other columns are lagged S_t's
+#' @detals first column is S_t, other columns are lagged S_t's
 #' the lags are in terms of dt
-#' #' @inheritParams sim.gbm
+#' @inheritParams sim.gbm
 #' @export
 sim.gbm.moving.ave <- function( x0, model, dt=model$dt)
 {

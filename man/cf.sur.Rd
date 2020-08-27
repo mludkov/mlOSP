@@ -12,7 +12,7 @@ cf.sur(objMean, objSd, nugget)
 \item{objSd:}{posterior standard deviation of the response}
 }
 \description{
-SUR for Contour Finding
+SUR (Stepwise Uncertainty Reduction) acquisition function for Contour Finding
 }
 \details{
 compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd^2)}

@@ -7,26 +7,32 @@
 osp.probDesign.piecewisebw(N, model, test.paths = NULL, verb = 0)
 }
 \arguments{
-\item{N}{is the number of paths}
+\item{N}{is the number of paths.}
 
-\item{model}{must contain the following fields: \code{T, dt, dim, nChildren},
-\code{sim.func, x0, r}}
+\item{model}{a list that must contain the following fields: \code{T, dt, dim, nChildren},
+\code{sim.func, x0, r, payoff.func}}
 
-\item{verb}{if specified, produces plots of the 1-dim fit every verb time-steps
+\item{verb}{if specified, produces plots of the 1-dim fit every \code{verb} time-steps
 [default is zero]}
 
-\item{test.paths:}{out of sample paths to obtain a price estimate
-     
- @return a list with the following fields:
-\code{price} is the scalar optimal reward;
-\code{tau} is a vector of stopping times over in-sample paths;
-\code{test} is a vector of out-of-sample pathwise rewards;
-\code{val} is a vector of in-sample pathwise rewards
-\code{timeElapsed} timing information based on \code{Sys.time}}
+\item{test.paths:}{(optional) a list containing out-of-sample paths to obtain a price estimate
+      
+  @return a list with the following fields:
+  \itemize{
+\item \code{price} is the scalar optimal reward;
+\item \code{tau} is a vector of stopping times over in-sample paths;
+\item \code{test} is a vector of out-of-sample pathwise rewards;
+\item \code{val} is a vector of in-sample pathwise rewards
+\item \code{timeElapsed} total running time based on \code{Sys.time}
+}}
 }
 \description{
-Uses the Bouchard-Warin recursive partitioning to created N-d trees
-for local linear regression fits
+Uses the Bouchard-Warin recursive partitioning to create N-d trees
+for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.
+}
+\details{
+Calls \link{treeDivide.BW} to create the equi-probably partitions.
+Must have N/model$nChildren^model$dim as an integer.
 }
 \examples{
 set.seed(1)

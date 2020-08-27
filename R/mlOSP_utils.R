@@ -127,9 +127,11 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
 ########################################################################################
 
 ######
-#' Two-dimensional raster+contour+point plot
-#' @title Visualize 2D emulator + stopping region
-#' @details Uses the raster plot from \pkg{ggplot2}
+#' Two-dimensional raster+contour+point plot of an mlOSP emulator at a single time step.
+#' @title Visualize a 2D emulator + stopping region
+#' @details Uses the raster plot from \pkg{ggplot2}. For GP-based objects, also shows the unique design
+#' sites via geom_point. See \code{\link{also plt.2d.surf.batch}} for a similar plot 
+#' for \code{osp.seq.batch.design} emulators.
 #'
 #' @param x,y locations to use for the \code{predict()} functions. Default is a 200x200 fine grid.
 #' Passed to \code{expand.grid}
@@ -140,6 +142,7 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
 #' @param ub clip the surface with an upper bound  to see the zero-contour better
 #' @param contour.col (default is "red") -- color of the zero contour
 #' @param bases (only used for lm objects)
+#' @return a ggplot handle for the created plot.
 #' @export
 plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6,
                          show.var=FALSE, only.contour=FALSE, contour.col="red",bases=NULL)
@@ -150,6 +153,13 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6
     obj <- predict(fit,cbind(gr$x,gr$y),predict.all=T)$individual
     obj <- apply(obj,1,median)
   }
+  if (is(fit,"earth") )
+    rule <- predict(fit,cbind(gr$x,gr$y)) # for use with  MARS
+  if (is(fit,"deepnet") )
+    rule <- nn.predict(fit,cbind(gr$x,gr$y)) # for use with deepnet
+  if (is(fit,"nnet") )
+    rule <- predict(fit,cbind(gr$x,gr$y), type="raw") # for use with nnet
+  
   if (is(fit,"dynaTree")  )
     obj <- predict(fit,cbind(gr$x,gr$y),quants=F)$mean
   if (is(fit,"lm") ) {
@@ -364,7 +374,7 @@ cf.el <- function(objMean,objSd)
 }
 
 #####################
-#' SUR for Contour Finding
+#' SUR (Stepwise Uncertainty Reduction) acquisition function for Contour Finding
 #'
 #' @title Compute EI for Contour Finding using the ZC-SUR formula
 #' @param objMean: predicted mean response
@@ -569,7 +579,24 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
   # sims is a list; sims[[i]] are the forward x-values of paths at t=i (those not stopped yet)
 }
 
-##############
+############################################
+#' Simulate \sum_k h(X_{tau_k}) using FIT
+#' @title Forward simulation of a swing payoff based on a sequence of emulators
+#' @param x     is a matrix of starting values
+#'
+#' if input \code{x} is a list, then use the grids specified by x
+#' @param M     is number of time steps to forward simulate
+#' @param fit   is a list of fitted emulators that determine the stopping classifiers to be used
+#' @param n.swing: number of swing rights
+#' @export
+#' @return a list containing:
+#' \itemize{
+#'  \item \code{payoff} is the resulting payoff NPV from t=0
+#'  \item \code{tau} are the times when stopped
+#'  \item  \code{nsims} number of total 1-step simulations performed
+#' }
+#' @details Should be used in conjuction with the \code{osp.swing.fixed} function that build the emulators. Also called
+#' internally from \code{\link{osp.fixed.design}}
 swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=FALSE)
 {
   nsim <- 0

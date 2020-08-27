@@ -30,9 +30,11 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 \item lagp Local GP: use \pkg{laGP}
 \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
-\item spline: Smoothing Splines, use \code{smooth.spline}
-\item loess: Local Regression: use \code{loess} with \code{lo.span} parameter
+\item spline: Smoothing Splines, use \code{smooth.spline} (only in 1d)
+\item loess: Local Regression: use \code{loess} with \code{lo.span} parameter (only in 1D or 2D)
 \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
+\item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
+ (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
 \item lm: linear model from \pkg{stats}
 }}
 

@@ -233,9 +233,11 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \item lagp Local GP: use \pkg{laGP}
 #' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 #' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
-#' \item spline: Smoothing Splines, use \code{smooth.spline}
-#' \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter
+#' \item spline: Smoothing Splines, use \code{smooth.spline} (only in 1d)
+#' \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter (only in 1D or 2D)
 #' \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
+#' \item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
+#'  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
 #' \item lm: linear model from \pkg{stats}
 #' }
 #' @param inTheMoney.thresh: which paths are kept, out-of-the-money is dropped.
@@ -644,7 +646,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 }
 
 #############################
-#' RMC using TvR along a fixed set of paths
+#' RMC using TvR along a fixed set of paths.
 #' All designs are kept in memory
 #' @title Tsitsiklis van Roy algorithm with a variety of regression methods
 #' @param model defines the simulator and reward model, with the two main model hooks being 
@@ -683,13 +685,20 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #'  Works with a probabilistic design that requires storing all paths in memory. Specifying \code{subset}
 #'  allows to compute in parallel with the original computation an out-of-sample estimate of the value function
 #'  
-#'  Calls \code{model$payoff.func}, so the latter must be set prior to calling
-#'  Also needs model$dt and model$r for discounting
+#'  Calls \code{model$payoff.func}, so the latter must be set prior to calling.
+#'  Also needs \code{model$dt} and \code{model$r} for discounting
 #'  
 #'  Calls \code{model$sim.func} to generate forward paths
 #'  
 #'  Emulator is trained on all paths, even those that are out-of-the-money
-
+#'  
+#' @examples
+#' set.seed(1)
+#' model2d <- list(K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
+#'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff,pilot.nsims=1000,
+#'  earth.deg=2,earth.nk=200,earth.thresh=1E-8)
+#' tvrSolve <- osp.tvr(N=41000,model2d, subset=1:1000,method="earth")
+#' # "in-sample v_0 1.224009; and out-of-sample: 1.233986"
 ###############################
 osp.tvr <- function(N,model,subset=1:N,method="lm")
 {

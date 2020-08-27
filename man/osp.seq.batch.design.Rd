@@ -2,27 +2,60 @@
 % Please edit documentation in R/ospSeqBatchDesign.R
 \name{osp.seq.batch.design}
 \alias{osp.seq.batch.design}
-\title{Adaptive Batch design for optimal stopping}
+\title{Adaptive Batching designs for optimal stopping based on Lyu & Ludkovski 2020}
 \usage{
 osp.seq.batch.design(model, method = "km", t0 = 0.01, is.gbm = FALSE)
 }
 \arguments{
 \item{method:}{either \code{km} or \code{hetgp} to select the GP emulator to apply}
 
-\item{t0:}{par \code{t0} in \code{ABSUR}}
+\item{t0:}{parameter \code{t0} for \code{ABSUR} [Default value is 0.01]}
+
+\item{is.gbm:}{flag to indicate whether the underlying simulator is independent log-normals (used 
+as part of density computation for integrated EI criteria) [Default FALSE]}
 }
 \value{
 a list containing:
-\code{fit} a list of fitted response surfaces
-\code{timeElapsed} vector of time cost for each round
-\code{nsims} total number of 1-step sim.func calls
-\code{empLoss} vector of empirical losses
-\code{ndesigns}: number of design size k_T
-\code{batches}: matrix of replications r_i
+\itemize{
+\item \code{fit} a list of fitted response surfaces
+\item \code{timeElapsed} vector of time cost for each round
+\item \code{nsims} total number of 1-step sim.func calls
+\item \code{empLoss} vector of empirical losses
+\item \code{ndesigns}: number of design size k_T
+\item \code{batches}: matrix of replications r_i, indexed by time-steps and by sequential rounds
+}
 }
 \description{
-Adaptive Batch design for optimal stopping
+Adaptive Batching designs for optimal stopping based on Lyu & Ludkovski 2020
 }
 \details{
-Implements the adaptive batching strategy defined in model/batch.heuristic. Calls lhs (library \pkg{tgp}).
+Implements the adaptive batching strategy defined in model/batch.heuristic. 
+Calls lhs  from library \pkg{tgp}. Possible batch heuristics are:
+\itemize{
+  \item \code{fb}: [Default] fixed batch amounts (essentially same as \link{osp.seq.design})
+  \item \code{mlb}: Multi-level batching
+  \item \code{rb}: Ratchet batching which relies on \code{model$r.cand}
+  \item \code{adsa}: Adaptive Design with Sequential Allocation
+  \item \code{ddsa}: Deterministic ADSA that alternates between adding a new input site and allocating
+  to existing sites
+}
+
+All heuristics also require specifying the acquisition function for expected improvement criterion 
+via \code{model$ei.func}, see \link{osp.seq.design}
+}
+\examples{
+sob30 <- randtoolbox::sobol(55, d=2)  # construct a space-filling initial design
+sob30 <- sob30[ which( sob30[,1] + sob30[,2] <= 1) ,]  
+sob30 <- 25+30*sob30 
+model2d <- list(x0 = rep(40,2),K=40,sigma=rep(0.2,2),r=0.06,
+ div=0,T=1,dt=0.04,dim=2,sim.func=sim.gbm, 
+ payoff.func=put.payoff, look.ahead=1, pilot.nsims=1000,
+ cand.len=1000,max.lengthscale=c(40,40),min.lengthscale=c(3,3),
+ seq.design.size=100,batch.nrep=20,total.budget=2000,init.size=30,
+ init.grid=sob30, kernel.family="gauss",update.freq=5,
+ r.cand=c(20, 30,40,50,60, 80, 120, 160))
+set.seed(110)
+model2d$batch.heuristic <- 'adsa'
+model2d$ei.func <- 'amcu'
+oos.obj.adsa <- osp.seq.batch.design(model2d,method="trainkm")
 }

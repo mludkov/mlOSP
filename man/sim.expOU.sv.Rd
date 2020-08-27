@@ -12,7 +12,7 @@ sim.expOU.sv(x0, model, dt = model$dt, useEuler = F)
 \item{model}{contains all the other parameters, including volatility \code{model$sigma}
 interest rate \code{model$r} and continuous dividend yield \code{model$div}}
 
-\item{dt}{is the step size}
+\item{dt}{is the step size in time. Defaults to \code{model$dt}}
 }
 \description{
 Simulate an exp-OU stoch volatility model with 1 or 2 vol factors

@@ -2,23 +2,22 @@
 % Please edit documentation in R/simFuncs.R
 \name{sim.gbm.asian}
 \alias{sim.gbm.asian}
-\title{Simulate 1D Brownian Motion for Asian Options
-first column is t, second column is S_t
-third column is A_t (arithmetic average)
-fourth column is tilde{A}_t (geometric average)}
+\title{Simulate 1D Brownian Motion for Asian Options}
 \usage{
 sim.gbm.asian(x0, model, dt = model$dt)
 }
 \arguments{
-\item{x0}{is the starting values (vector)}
+\item{x0}{is the starting values (matrix of size N x model$dim)}
 
 \item{model}{contains all the other parameters, including volatility \code{model$sigma}
 interest rate \code{model$r} and continuous dividend yield \code{model$div}}
 
-\item{dt}{is the step size}
+\item{dt}{is the step size in time. Defaults to \code{model$dt}}
 }
 \description{
 Simulate 1D Brownian Motion for Asian Options
+}
+\details{
 first column is t, second column is S_t
 third column is A_t (arithmetic average)
 fourth column is tilde{A}_t (geometric average)

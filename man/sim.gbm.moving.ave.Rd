@@ -2,16 +2,18 @@
 % Please edit documentation in R/simFuncs.R
 \name{sim.gbm.moving.ave}
 \alias{sim.gbm.moving.ave}
-\title{Simulate 1D Brownian Motion for Moving Average Asian Options
-first column is S_t, other columns are lagged S_t's
-the lags are in terms of dt
-#' @inheritParams sim.gbm}
+\title{Simulate 1D Brownian Motion for Moving Average Asian Options}
 \usage{
 sim.gbm.moving.ave(x0, model, dt = model$dt)
 }
+\arguments{
+\item{x0}{is the starting values (matrix of size N x model$dim)}
+
+\item{model}{contains all the other parameters, including volatility \code{model$sigma}
+interest rate \code{model$r} and continuous dividend yield \code{model$div}}
+
+\item{dt}{is the step size in time. Defaults to \code{model$dt}}
+}
 \description{
 Simulate 1D Brownian Motion for Moving Average Asian Options
-first column is S_t, other columns are lagged S_t's
-the lags are in terms of dt
-#' @inheritParams sim.gbm
 }
