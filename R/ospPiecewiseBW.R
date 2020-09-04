@@ -28,7 +28,7 @@
 #'    eulerDt=1/2520, dim=2,sim.func=sim.expOU.sv,nChildren=10,payoff.func=sv.put.payoff)
 #' putPr <- osp.probDesign.piecewisebw(20000,modelSV5)
 #' putPr$price
-#'   \# get [1] 17.30111
+#'   # get [1] 17.30111
 #' @export
 ###########################################
 osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)

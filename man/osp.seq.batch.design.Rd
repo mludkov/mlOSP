@@ -51,11 +51,16 @@ model2d <- list(x0 = rep(40,2),K=40,sigma=rep(0.2,2),r=0.06,
  div=0,T=1,dt=0.04,dim=2,sim.func=sim.gbm, 
  payoff.func=put.payoff, look.ahead=1, pilot.nsims=1000,
  cand.len=1000,max.lengthscale=c(40,40),min.lengthscale=c(3,3),
- seq.design.size=100,batch.nrep=20,total.budget=2000,init.size=30,
+ seq.design.size=50,batch.nrep=25,total.budget=1000,init.size=30,
  init.grid=sob30, kernel.family="gauss",update.freq=5,
  r.cand=c(20, 30,40,50,60, 80, 120, 160))
-set.seed(110)
+set.seed(11)
+require(tgp)
+require(DiceKriging)
+require(laGP)
+require(ks)
 model2d$batch.heuristic <- 'adsa'
 model2d$ei.func <- 'amcu'
 oos.obj.adsa <- osp.seq.batch.design(model2d,method="trainkm")
+# not run: plt.2d.surf.with.batch(oos.obj.adsa$fit[[10]],25)
 }

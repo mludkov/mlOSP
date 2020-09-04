@@ -18,10 +18,12 @@ interest rate \code{model$r} and continuous dividend yield \code{model$div}}
 Simulate an exp-OU stoch volatility model with 1 or 2 vol factors
 }
 \section{Usage}{
-  Need the following fields in model: \code{svMean} (mean-rev level), \code{svAlpha} (men-rev strength),
-svEpsY (fast scaling param), svVol (vol-vol), svRho (corr)
-for 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{svAlphaZ} (mean-reversion strength), \code{svDeltaZ} (slow
-scaling parameter)
-\code{svVolZ} (Z volatility), \code{svRhoZ} (correlation between Z and S), \code{svRhoYZ} ( correlation between the 2 factors)
+  Need the following fields in model: \code{svMean} (mean-reversion level), 
+\code{svAlpha} (mean-reversion strength), \code{svEpsY} (fast scaling parameter), 
+\code{svVol} (volatility of volatility), \code{svRho} (correlation with asset S).
+For 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{svAlphaZ} 
+(mean-reversion strength), \code{svDeltaZ} (slow scaling parameter),
+\code{svVolZ} (Z volatility), \code{svRhoZ} (correlation between Z and S), \code{svRhoYZ} 
+( correlation between the fast and slow SV factors)
 }
 

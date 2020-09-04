@@ -16,7 +16,7 @@ osp.fixed.design(
 \item{input.domain:}{the domain of the emulator. Several options are available. Default in \code{NULL}
 All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 \itemize{
-\item  NULL will use an empirical design (default);
+\item  NULL will use an empirical probabilistic design based on the pilot paths (default);
 \item if a vector of length 2*model$dim then specifies the bounding rectangle
 \item a single positive number, then build a bounding rectangle based on the \eqn{\alpha}-quantile of the pilot paths
 \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
@@ -27,12 +27,14 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 \itemize{
 \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
 \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
-\item lagp Local GP: use \pkg{laGP}
+\item lagp Local approximate GP from the \pkg{laGP}. Requires
 \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
-\item spline: Smoothing Splines, use \code{smooth.spline} (only in 1d)
+\item spline: Smoothing Splines, use \code{smooth.spline} (only in 1D). Requires number of 
+knots via \code{model$nk} 
 \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter (only in 1D or 2D)
-\item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
+\item rvm: Relevance Vector Machine: uses \code{rvm} from \pkg{kernlab}. Can optionally provide
+\code{rvm.kernel} parameter (default is 'rbfdot')
 \item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
 \item lm: linear model from \pkg{stats}
@@ -57,8 +59,8 @@ The design can be replicated through \code{batch.nrep} model parameter. Replicat
 nonparametric techniques which would be too expensive otherwise, in particular LOESS, GP and RVM.
 All designs are restricted to in-the-money region, see \code{inTheMoney.thresh} parameter (modify at your own risk)
 Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, ie the
-method only builds the emulators. Thus, to obtain an actual estimate of the value
-combine with \code{\link{forward.sim.policy}}
+method only builds the emulators. Thus, to obtain an actual estimate of the opton price
+combine with \code{\link{forward.sim.policy}}.
 }
 \examples{
 set.seed(1)

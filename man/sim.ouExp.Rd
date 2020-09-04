@@ -17,3 +17,7 @@ interest rate \code{model$r} and continuous dividend yield \code{model$div}}
 \description{
 Simulate from exponential Ornstein Uhlenbeck process
 }
+\details{
+Uses \code{model$alpha} for the mean-reversion strength, 
+\code{model$meanrev} for the mean-reversion level, and \code{model$sigma} for the volatility.
+}

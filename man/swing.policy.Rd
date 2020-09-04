@@ -16,9 +16,8 @@ swing.policy(
 )
 }
 \arguments{
-\item{x}{is a matrix of starting values
-
-if input \code{x} is a list, then use the grids specified by x}
+\item{x}{a matrix of starting values (N x \code{model$dim}).
+If input \code{x} is a list, then use the grids specified by x}
 
 \item{M}{is number of time steps to forward simulate}
 
@@ -29,15 +28,14 @@ if input \code{x} is a list, then use the grids specified by x}
 \value{
 a list containing:
 \itemize{
- \item \code{payoff} is the resulting payoff NPV from t=0
- \item \code{tau} are the times when stopped
+ \item \code{payoff}: a vector of length `nrow(x)` containing the resulting payoffs NPV from $t=0$
+ \item \code{tau} matrix of the times when stopped. Columns represent the rights exercised
  \item  \code{nsims} number of total 1-step simulations performed
 }
 }
 \description{
-Simulate \sum_k h(X_{tau_k}) using FIT
+Simulate $\sum_k h(X_{tau_k})$ using \code{fit} emulators
 }
 \details{
-Should be used in conjuction with the \code{osp.swing.fixed} function that build the emulators. Also called
-internally from \code{\link{osp.fixed.design}}
+Should be used in conjuction with the \code{osp.swing.fixed} function that builds the emulators.
 }

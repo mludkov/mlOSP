@@ -17,16 +17,18 @@ By default everything is in-sample}
 
 \item{method}{a string specifying regression method to use
 \itemize{
- \item spline: \code{smooth.spline} from \pkg{base} which only works \emph{in 1D}
+ \item spline: Smoothing splines \code{smooth.spline} from \pkg{base}. Only works \emph{in 1D}.
+ Requires number of knots \code{nk}.
  \item randomforest: (from \pkg{randomForest} package) requires \code{rf.maxnode}
  and \code{rf.ntree} (number of trees) model parameters
- \item loess: only works in \emph{1D or 2D}, requires \code{lo.span} model parameter
- \item earth: multivariate regression splines (MARS) using \pkg{earth} package.
+ \item loess: local polynomial regression. Only works in \emph{1D or 2D}, 
+ requires \code{lo.span} model parameter
+ \item earth: multivariate adaptive regression splines (MARS) using \pkg{earth} package.
  Requires \code{earth.deg} (interaction degree), \code{earth.nk} (max number of terms to keep),
  \code{earth.thresh} params
  \item rvm: relevance vector machine from \pkg{kernlab} package. Optional \code{rvm.kernel}
  model parameter to decide which kernel family to utilize. Default kernel is rbfdot
- \item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
+ \item npreg: kernel regression using \pkg{np} package. Can optionally provide \code{np.kertype} 
  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
  \item nnet: neural network using \pkg{nnet}. This is a single-layer neural net. Specify a scalar \code{nn.nodes} 
  to describe the number of nodes at the hidden layer

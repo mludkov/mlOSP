@@ -2,7 +2,7 @@
 % Please edit documentation in R/ospProbDesign.R
 \name{osp.tvr}
 \alias{osp.tvr}
-\title{Tsitsiklis van Roy algorithm with a variety of regression methods}
+\title{Tsitsiklis van Roy RMC algorithm with a variety of regression methods}
 \usage{
 osp.tvr(N, model, subset = 1:N, method = "lm")
 }
@@ -12,7 +12,7 @@ osp.tvr(N, model, subset = 1:N, method = "lm")
 \item{model}{defines the simulator and reward model, with the two main model hooks being 
 \code{payoff.func} (plus parameters) and \code{sim.func} (plus parameters)}
 
-\item{subset}{To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
+\item{subset}{To reserve out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
 By default everything is in-sample.}
 
 \item{method}{a string specifying regression method to use
@@ -31,7 +31,7 @@ By default everything is in-sample.}
  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions (+ constant)
  }}
 
-\item{x0}{-- required part of the model. Can be either a vector of length \code{model$dim} 
+\item{x0}{-- required part of the \code{model}. Can be either a vector of length \code{model$dim} 
 or a vector of length \code{model$dim}*N}
 }
 \value{
@@ -46,7 +46,7 @@ at \eqn{t=\Delta t}, the last one is \code{fit[[M-1]]} which is emulator for \eq
 }
 }
 \description{
-RMC using TvR along a fixed set of paths.
+RMC using TvR along a global set of paths.
 All designs are kept in memory
 }
 \details{
@@ -62,6 +62,7 @@ Works with a probabilistic design that requires storing all paths in memory. Spe
 }
 \examples{
 set.seed(1)
+require(earth)
 model2d <- list(K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff,pilot.nsims=1000,
  earth.deg=2,earth.nk=200,earth.thresh=1E-8)

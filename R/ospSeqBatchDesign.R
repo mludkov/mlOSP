@@ -37,13 +37,18 @@
 #'  div=0,T=1,dt=0.04,dim=2,sim.func=sim.gbm, 
 #'  payoff.func=put.payoff, look.ahead=1, pilot.nsims=1000,
 #'  cand.len=1000,max.lengthscale=c(40,40),min.lengthscale=c(3,3),
-#'  seq.design.size=100,batch.nrep=20,total.budget=2000,init.size=30,
+#'  seq.design.size=50,batch.nrep=25,total.budget=1000,init.size=30,
 #'  init.grid=sob30, kernel.family="gauss",update.freq=5,
 #'  r.cand=c(20, 30,40,50,60, 80, 120, 160))
-#' set.seed(110)
+#' set.seed(11)
+#' require(tgp)
+#' require(DiceKriging)
+#' require(laGP)
+#' require(ks)
 #' model2d$batch.heuristic <- 'adsa'
 #' model2d$ei.func <- 'amcu'
 #' oos.obj.adsa <- osp.seq.batch.design(model2d,method="trainkm")
+#' # not run: plt.2d.surf.with.batch(oos.obj.adsa$fit[[10]],25)
 osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
 {
   M <- model$T/model$dt
@@ -115,13 +120,13 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
 
     # Candidate grid of potential NEW sites to add. Will be ranked using the EI acquisition function
     # only keep in-the-money sites
-    ei.cands <- lhs( model$cand.len, lhs.rect )  # from tgp package
+    ei.cands <- tgp::lhs( model$cand.len, lhs.rect )  # from tgp package
     ei.cands <- ei.cands[ model$payoff.func( ei.cands,model) > 0,,drop=F]
 
 
     # initial design
     if (is.null(model$init.grid)) {
-      init.grid <- lhs(model$init.size, lhs.rect)
+      init.grid <- tgp::lhs(model$init.size, lhs.rect)
     } else {
       init.grid <- model$init.grid
     }
@@ -215,7 +220,7 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
         dX_2[,dd] <- dX_2[,dd]/(lhs.rect[dd,2]-lhs.rect[dd,1])
       }
       # from package lagp
-      ddx <- distance( dX_1, dX_2)
+      ddx <- laGP::distance( dX_1, dX_2)
       x.dens <- apply( exp(-ddx*dim(ei.cands)[1]*0.01), 2, sum)
       emp.loss[i,k-model$init.size] <- sum(losses*x.dens)/sum(x.dens)
       if (is.null(model$el.thresh) == FALSE) { # stop if below the Emp Loss threshold

@@ -26,6 +26,8 @@ sim.gbm <- function( x0, model, dt=model$dt)
 ####################################
 #' Simulate from exponential Ornstein Uhlenbeck process
 #' @inheritParams sim.gbm
+#' @details Uses \code{model$alpha} for the mean-reversion strength, 
+#' \code{model$meanrev} for the mean-reversion level, and \code{model$sigma} for the volatility.
 #' @export
 sim.ouExp <- function( x0, model, dt=model$dt)
 {
@@ -69,11 +71,13 @@ sim.logOU_Discrete <- function( x0, model, dt=model$dt)
 #' @inheritParams sim.gbm
 #' @export
 #' @param x0 should have 2 or 3 columns
-#' @section Usage:  Need the following fields in model: \code{svMean} (mean-rev level), \code{svAlpha} (men-rev strength),
-#' svEpsY (fast scaling param), svVol (vol-vol), svRho (corr)
-#' for 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{svAlphaZ} (mean-reversion strength), \code{svDeltaZ} (slow
-#' scaling parameter)
-#' \code{svVolZ} (Z volatility), \code{svRhoZ} (correlation between Z and S), \code{svRhoYZ} ( correlation between the 2 factors)
+#' @section Usage:  Need the following fields in model: \code{svMean} (mean-reversion level), 
+#' \code{svAlpha} (mean-reversion strength), \code{svEpsY} (fast scaling parameter), 
+#' \code{svVol} (volatility of volatility), \code{svRho} (correlation with asset S).
+#' For 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{svAlphaZ} 
+#' (mean-reversion strength), \code{svDeltaZ} (slow scaling parameter),
+#' \code{svVolZ} (Z volatility), \code{svRhoZ} (correlation between Z and S), \code{svRhoYZ} 
+#' ( correlation between the fast and slow SV factors)
 sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
 {
     len <- nrow(x0)

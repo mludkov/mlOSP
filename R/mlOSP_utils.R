@@ -68,8 +68,8 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
       }
       if (is(fit[[i+1-offset]],"km") ) # DiceKriging
         rule <- predict(fit[[i+1-offset]],data.frame(x=curX[contNdx[in.the.money],,drop=F]),type="UK")$mean
-      if (is(fit[[i+1-offset]],"gpi") )  # laGP
-        rule <- predGP(fit[[i+1-offset]],XX=curX[contNdx[in.the.money],,drop=F], lite=TRUE)$mean
+      if (is(fit[[i+1-offset]],"integer") )  # laGP
+        rule <- predGP(fit[[i+1-offset]],XX=curX[contNdx[in.the.money],,drop=F], lite=TRUE ,nonug=TRUE)$mean
       if (is(fit[[i+1-offset]],"lm") ) {
         lenn <- length(fit[[i+1-offset]]$coefficients)
         rule <-  fit[[i+1-offset]]$coefficients[1] + model$bases(curX[contNdx[in.the.money],,drop=F]) %*%
@@ -580,23 +580,21 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
 }
 
 ############################################
-#' Simulate \sum_k h(X_{tau_k}) using FIT
+#' Simulate $\sum_k h(X_{tau_k})$ using \code{fit} emulators
 #' @title Forward simulation of a swing payoff based on a sequence of emulators
-#' @param x     is a matrix of starting values
-#'
-#' if input \code{x} is a list, then use the grids specified by x
+#' @param x   a matrix of starting values (N x \code{model$dim}).
+#' If input \code{x} is a list, then use the grids specified by x
 #' @param M     is number of time steps to forward simulate
 #' @param fit   is a list of fitted emulators that determine the stopping classifiers to be used
 #' @param n.swing: number of swing rights
 #' @export
 #' @return a list containing:
 #' \itemize{
-#'  \item \code{payoff} is the resulting payoff NPV from t=0
-#'  \item \code{tau} are the times when stopped
+#'  \item \code{payoff}: a vector of length `nrow(x)` containing the resulting payoffs NPV from $t=0$
+#'  \item \code{tau} matrix of the times when stopped. Columns represent the rights exercised
 #'  \item  \code{nsims} number of total 1-step simulations performed
 #' }
-#' @details Should be used in conjuction with the \code{osp.swing.fixed} function that build the emulators. Also called
-#' internally from \code{\link{osp.fixed.design}}
+#' @details Should be used in conjuction with the \code{osp.swing.fixed} function that builds the emulators. 
 swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=FALSE)
 {
   nsim <- 0

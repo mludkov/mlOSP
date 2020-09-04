@@ -96,7 +96,7 @@ osp.seq.design <- function(model,method="km")
 
     # Candidate grid of potential NEW sites to add. Will be ranked using the EI acquisition function
     # only keep in-the-money sites
-    ei.cands <- lhs( model$cand.len, lhs.rect )  # from tgp package
+    ei.cands <- tgp::lhs( model$cand.len, lhs.rect )  # from tgp package
     ei.cands <- ei.cands[ model$payoff.func( ei.cands,model) > 0,,drop=F]
     
     if (is.null(model$min.lengthscale)) 
@@ -106,7 +106,7 @@ osp.seq.design <- function(model,method="km")
 
     # initial design
     if (is.null(model$init.grid))
-      init.grid <- lhs( model$init.size, lhs.rect)
+      init.grid <- tgp::lhs( model$init.size, lhs.rect)
     else
       init.grid <- model$init.grid
     if (model$dim > 1) {
@@ -226,7 +226,7 @@ osp.seq.design <- function(model,method="km")
         dX_2[,dd] <- dX_2[,dd]/(lhs.rect[dd,2]-lhs.rect[dd,1])
       }
       # from package lagp
-      ddx <- distance( dX_1, dX_2) #ddx <- distance( pilot.paths[[i]], ei.cands)
+      ddx <- laGP::distance( dX_1, dX_2) #ddx <- distance( pilot.paths[[i]], ei.cands)
       #x.dens <- apply( exp(-ddx/2/(lhs.rect[1,2]-lhs.rect[1,1])), 2, sum)
       x.dens <- apply( exp(-ddx*dim(ei.cands)[1]*0.01), 2, sum)
 

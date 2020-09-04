@@ -14,16 +14,18 @@
 #' or a vector of length \code{model$dim}*N
 #' @param method a string specifying regression method to use
 #' \itemize{
-#'  \item spline: \code{smooth.spline} from \pkg{base} which only works \emph{in 1D}
+#'  \item spline: Smoothing splines \code{smooth.spline} from \pkg{base}. Only works \emph{in 1D}.
+#'  Requires number of knots \code{nk}.
 #'  \item randomforest: (from \pkg{randomForest} package) requires \code{rf.maxnode}
 #'  and \code{rf.ntree} (number of trees) model parameters
-#'  \item loess: only works in \emph{1D or 2D}, requires \code{lo.span} model parameter
-#'  \item earth: multivariate regression splines (MARS) using \pkg{earth} package.
+#'  \item loess: local polynomial regression. Only works in \emph{1D or 2D}, 
+#'  requires \code{lo.span} model parameter
+#'  \item earth: multivariate adaptive regression splines (MARS) using \pkg{earth} package.
 #'  Requires \code{earth.deg} (interaction degree), \code{earth.nk} (max number of terms to keep),
 #'  \code{earth.thresh} params
 #'  \item rvm: relevance vector machine from \pkg{kernlab} package. Optional \code{rvm.kernel}
 #'  model parameter to decide which kernel family to utilize. Default kernel is rbfdot
-#'  \item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
+#'  \item npreg: kernel regression using \pkg{np} package. Can optionally provide \code{np.kertype} 
 #'  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
 #'  \item nnet: neural network using \pkg{nnet}. This is a single-layer neural net. Specify a scalar \code{nn.nodes} 
 #'  to describe the number of nodes at the hidden layer
@@ -67,6 +69,8 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
   M <- model$T/model$dt
   grids <- list()
   all.models <- list()
+  if (is.null(subset))
+    subset = 1:N
 
   # divide into in-sample and out-of-sample
   if (length(subset) < N)
@@ -220,7 +224,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' @param input.domain: the domain of the emulator. Several options are available. Default in \code{NULL}
 #' All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 #' \itemize{
-#' \item  NULL will use an empirical design (default);
+#' \item  NULL will use an empirical probabilistic design based on the pilot paths (default);
 #' \item if a vector of length 2*model$dim then specifies the bounding rectangle
 #' \item a single positive number, then build a bounding rectangle based on the \eqn{\alpha}-quantile of the pilot paths
 #' \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
@@ -230,12 +234,14 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \itemize{
 #' \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
 #' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
-#' \item lagp Local GP: use \pkg{laGP}
+#' \item lagp Local approximate GP from the \pkg{laGP}. Requires
 #' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 #' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
-#' \item spline: Smoothing Splines, use \code{smooth.spline} (only in 1d)
+#' \item spline: Smoothing Splines, use \code{smooth.spline} (only in 1D). Requires number of 
+#' knots via \code{model$nk} 
 #' \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter (only in 1D or 2D)
-#' \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
+#' \item rvm: Relevance Vector Machine: uses \code{rvm} from \pkg{kernlab}. Can optionally provide
+#' \code{rvm.kernel} parameter (default is 'rbfdot')
 #' \item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
 #'  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
 #' \item lm: linear model from \pkg{stats}
@@ -252,8 +258,8 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' nonparametric techniques which would be too expensive otherwise, in particular LOESS, GP and RVM.
 #' All designs are restricted to in-the-money region, see \code{inTheMoney.thresh} parameter (modify at your own risk)
 #' Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, ie the
-#' method only builds the emulators. Thus, to obtain an actual estimate of the value
-#' combine with \code{\link{forward.sim.policy}}
+#' method only builds the emulators. Thus, to obtain an actual estimate of the opton price
+#' combine with \code{\link{forward.sim.policy}}.
 #' 
 #' @export
 #' 
@@ -383,9 +389,12 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
                                    control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
                                    noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
 
-    else if (n.reps < 10 & method == "lagp")  # laGP library implementation
+    else if (method == "lagp")  { # laGP library implementation
       fits[[i]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
-                                d=list(mle=FALSE, start=model$km.cov), g=list(start=1, mle=TRUE))
+                                d=model$lagp.d, g=1e-6,dK=TRUE)
+    
+     jmleGP(fits[[i]], drange=c(model$min.lengthscale,model$max.lengthscale), grange=c(1e-8, 0.001))
+    }
     else if(method =="hetgp") {
       big.payoff <- model$payoff.func(big.grid,model)
       hetData <- find_reps(big.grid, fsim$payoff-big.payoff)
@@ -439,7 +448,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' @param input.domain: the domain of the emulator. Several options are available. Default in \code{NULL}
 #' All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 #' \itemize{
-#' \item  NULL will use an empirical design (default);
+#' \item NULL will use an empirical probabilistic design based on the pilot paths (default);
 #' \item if a vector of length 2*model$dim then specifies the bounding rectangle
 #' \item a single positive number, then build a bounding rectangle based on the \eqn{\alpha}-quantile of the pilot paths
 #' \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
@@ -447,13 +456,17 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' }
 #' @param method: regression method to use (defaults to \code{km})
 #' \itemize{
-#' \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
-#' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
-#' \item lagp Local GP: use \pkg{laGP}
-#' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
+#' \item km: [(default] Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km}.
+#' Requires \code{km.cov} (vector of lengthscales) and \code{km.var} (scalar process variance)  
+#' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}. 
+#' Requires to specify kernel family via \code{kernel.family}
+#' \item lagp Local GP from \pkg{laGP} (uses Gaussian squared exponential kernel)
+#' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}. 
+#' Requires to specify kernel family via \code{kernel.family}
 #' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
-#' \item spline: Smoothing Splines, use \code{smooth.spline}
-#' \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter
+#' Requires to specify kernel family via \code{kernel.family}
+#' \item spline: Smoothing Splines, use \code{smooth.spline} with the \code{nk} number of knots (1D only)
+#' \item loess: Local polynomial regression: use \code{loess} with \code{lo.span} parameter
 #' \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
 #' \item lm: linear model from \pkg{stats}
 #' }
@@ -470,17 +483,18 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' saved in \code{swing.payoff}. Also assumes a refraction period of \code{refract} between consecutive 
 #' exercises. The experimental design is based on  \code{\link{osp.fixed.design}}. By default, no forward evaluation is provided, ie the
 #' method only builds the emulators. Thus, to obtain an actual estimate of the value
-#' combine with \code{\link{swing.policy}}
+#' combine with \code{\link{swing.policy}}.
 #' @export
 #' 
 #' @examples
 #' set.seed(1)
-#' swModel <- list(K=40,x0=40,sigma=0.3,r=0.05,div=0,
-#'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, swing.payoff=put.payoff)
-#'  bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
-#'  swModel$bases <- bas22
-#'  prob.lm <- swing.fixed.design(30000,model2d,method="lm",subset=1:15000)
-#'  prob.lm$price
+#' swingModel <- list(dim=1, sim.func=sim.gbm, x0=100,
+#' swing.payoff=put.payoff, n.swing=3,K=100, 
+#' sigma=0.3, r=0.05, div=0,
+#' T=1,dt=0.02,refract=0.1,
+#' N=800,pilot.nsims=1000,batch.nrep=25)
+#' swingModel$nk=16  # number of knots for the smoothing spline
+#' spl.swing <- swing.fixed.design(swingModel,input.domain=0.03, method ="spline")
 swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0)
 {
   M <- model$T/model$dt
@@ -646,15 +660,15 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 }
 
 #############################
-#' RMC using TvR along a fixed set of paths.
+#' RMC using TvR along a global set of paths.
 #' All designs are kept in memory
-#' @title Tsitsiklis van Roy algorithm with a variety of regression methods
+#' @title Tsitsiklis van Roy RMC algorithm with a variety of regression methods
 #' @param model defines the simulator and reward model, with the two main model hooks being 
 #' \code{payoff.func} (plus parameters) and \code{sim.func} (plus parameters)
 #' @param N is the number of paths
-#' @param subset To have out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
+#' @param subset To reserve out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
 #' By default everything is in-sample.
-#' @param x0 -- required part of the model. Can be either a vector of length \code{model$dim} 
+#' @param x0 -- required part of the \code{model}. Can be either a vector of length \code{model$dim} 
 #' or a vector of length \code{model$dim}*N
 #' @param method a string specifying regression method to use
 #' \itemize{
@@ -694,6 +708,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #'  
 #' @examples
 #' set.seed(1)
+#' require(earth)
 #' model2d <- list(K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
 #'  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff,pilot.nsims=1000,
 #'  earth.deg=2,earth.nk=200,earth.thresh=1E-8)
@@ -705,6 +720,8 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
   M <- model$T/model$dt
   grids <- list()
   all.models <- list()
+  if (is.null(subset))
+     subset = 1:N
   
   # divide into in-sample and out-of-sample
   if (length(subset) < N)

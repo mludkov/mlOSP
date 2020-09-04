@@ -15,7 +15,7 @@ swing.fixed.design(
 \item{input.domain:}{the domain of the emulator. Several options are available. Default in \code{NULL}
 All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 \itemize{
-\item  NULL will use an empirical design (default);
+\item NULL will use an empirical probabilistic design based on the pilot paths (default);
 \item if a vector of length 2*model$dim then specifies the bounding rectangle
 \item a single positive number, then build a bounding rectangle based on the \eqn{\alpha}-quantile of the pilot paths
 \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
@@ -24,13 +24,17 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 
 \item{method:}{regression method to use (defaults to \code{km})
 \itemize{
-\item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
-\item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
-\item lagp Local GP: use \pkg{laGP}
-\item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
+\item km: [(default] Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km}.
+Requires \code{km.cov} (vector of lengthscales) and \code{km.var} (scalar process variance)  
+\item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}. 
+Requires to specify kernel family via \code{kernel.family}
+\item lagp Local GP from \pkg{laGP} (uses Gaussian squared exponential kernel)
+\item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}. 
+Requires to specify kernel family via \code{kernel.family}
 \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
-\item spline: Smoothing Splines, use \code{smooth.spline}
-\item loess: Local Regression: use \code{loess} with \code{lo.span} parameter
+Requires to specify kernel family via \code{kernel.family}
+\item spline: Smoothing Splines, use \code{smooth.spline} with the \code{nk} number of knots (1D only)
+\item loess: Local polynomial regression: use \code{loess} with \code{lo.span} parameter
 \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
 \item lm: linear model from \pkg{stats}
 }}
@@ -54,14 +58,15 @@ Solves for a swing with \code{n.swing} exercise rights. The payoff function is
 saved in \code{swing.payoff}. Also assumes a refraction period of \code{refract} between consecutive 
 exercises. The experimental design is based on  \code{\link{osp.fixed.design}}. By default, no forward evaluation is provided, ie the
 method only builds the emulators. Thus, to obtain an actual estimate of the value
-combine with \code{\link{swing.policy}}
+combine with \code{\link{swing.policy}}.
 }
 \examples{
 set.seed(1)
-swModel <- list(K=40,x0=40,sigma=0.3,r=0.05,div=0,
- T=1,dt=0.04,dim=2, sim.func=sim.gbm, swing.payoff=put.payoff)
- bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
- swModel$bases <- bas22
- prob.lm <- swing.fixed.design(30000,model2d,method="lm",subset=1:15000)
- prob.lm$price
+swingModel <- list(dim=1, sim.func=sim.gbm, x0=100,
+swing.payoff=put.payoff, n.swing=3,K=100, 
+sigma=0.3, r=0.05, div=0,
+T=1,dt=0.02,refract=0.1,
+N=800,pilot.nsims=1000,batch.nrep=25)
+swingModel$nk=16  # number of knots for the smoothing spline
+spl.swing <- swing.fixed.design(swingModel,input.domain=0.03, method ="spline")
 }
