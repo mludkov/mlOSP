@@ -1,8 +1,11 @@
 #################
-#' @title Adaptive Batching designs for optimal stopping based on Lyu & Ludkovski 2020
+#' @title Adaptive Batching designs for optimal stopping 
+#' 
+#' @description Sequential experimental design for optimal stopping problems with several 
+#' adaptive batching heuristics based on Lyu & Ludkovski (2020+)
 #'
-#' @details Implements the adaptive batching strategy defined in model/batch.heuristic. 
-#' Calls lhs  from library \pkg{tgp}. Possible batch heuristics are:
+#' @details Implements the adaptive batching strategy defined in \code{mode$batch.heuristic}. 
+#' Calls \code{lhs}  from library \pkg{tgp}. Possible batch heuristics are:
 #' \itemize{
 #'   \item \code{fb}: [Default] fixed batch amounts (essentially same as \link{osp.seq.design})
 #'   \item \code{mlb}: Multi-level batching
@@ -15,9 +18,9 @@
 #' All heuristics also require specifying the acquisition function for expected improvement criterion 
 #' via \code{model$ei.func}, see \link{osp.seq.design}
 #' 
-#' @param method: either \code{km} or \code{hetgp} to select the GP emulator to apply
-#' @param t0: parameter \code{t0} for \code{ABSUR} [Default value is 0.01]
-#' @param is.gbm: flag to indicate whether the underlying simulator is independent log-normals (used 
+#' @param \code{method}: either \code{km} or \code{hetgp} to select the GP emulator to apply
+#' @param \code{t0}: parameter \code{t0} for \code{ABSUR} [Default value is 0.01]
+#' @param \code{is.gbm}: flag to indicate whether the underlying simulator is independent log-normals (used 
 #' as part of density computation for integrated EI criteria) [Default FALSE]
 #' @export
 #' @return a list containing:
@@ -29,6 +32,10 @@
 #' \item \code{ndesigns}: number of design size k_T
 #' \item \code{batches}: matrix of replications r_i, indexed by time-steps and by sequential rounds
 #' }
+#' @references 
+#' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+#' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+#' 
 #' @examples
 #' sob30 <- randtoolbox::sobol(55, d=2)  # construct a space-filling initial design
 #' sob30 <- sob30[ which( sob30[,1] + sob30[,2] <= 1) ,]  

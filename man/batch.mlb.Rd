@@ -2,7 +2,7 @@
 % Please edit documentation in R/batchDesign_utils.R
 \name{batch.mlb}
 \alias{batch.mlb}
-\title{Calculates weights for batch size in MLB}
+\title{Multi-Level Batching Heuristic}
 \usage{
 batch.mlb(objSd_at_x_optim, r_cand, nugget, gamma)
 }
@@ -15,6 +15,20 @@ batch.mlb(objSd_at_x_optim, r_cand, nugget, gamma)
 
 \item{gamma:}{threshold compared with sd}
 }
+\value{
+list containing:
+ \itemize{ 
+ \item \code{roptim}: new replication count
+ \item \code{gamma}: new gamma variable
+ }
+}
 \description{
-MLB for Adaptive Batching
+Calculates weights for batch size in MLB when called from \link{osp.seq.batch.design}
+}
+\references{
+M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+}
+\seealso{
+\link{\code{osp.seq.batch.design}}
 }

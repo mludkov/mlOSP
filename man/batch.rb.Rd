@@ -18,5 +18,12 @@ batch.rb(objSd_at_x_optim, r_cand, last_r, nugget, gamma)
 \item{gamma:}{threshold compared with sd}
 }
 \description{
-RB for Adaptive Batching
+Ratchet Batching heuristic
+}
+\references{
+M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+}
+\seealso{
+\link{\code{osp.seq.batch.design}}
 }

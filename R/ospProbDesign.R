@@ -110,13 +110,13 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 
     ### CASES DEPENDING ON METHOD
     if (method == "spline" & ncol(grids[[i]]) == 1) { # only works in 1D
-      all.models[[i]] <- smooth.spline( x=grids[[i]][c.train],y=yVal,
+      all.models[[i]] <- stats::smooth.spline( x=grids[[i]][c.train],y=yVal,
                                         nknots = model$nk)
       timingValue <- predict(all.models[[i]],grids[[i]])$y
     }
 
     if (method == "randomforest") {
-      all.models[[i]] <-  randomForest(x=grids[[i]][c.train,,drop=F],y=yVal,
+      all.models[[i]] <-  randomForest::randomForest(x=grids[[i]][c.train,,drop=F],y=yVal,
                                        ntree=model$rf.ntree,replace=F,maxnode=model$rf.maxnode)
       timingValue <- predict(all.models[[i]],grids[[i]],predict.all=T)$individual
       stopProb <- apply( (timingValue < 0), 1, sum)/model$rf.ntree  # not used right now
@@ -125,12 +125,12 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 
     if (method == "loess" & ncol(grids[[i]]) <= 2) { # LOESS only works in 1D or 2D
         if (ncol(grids[[i]]) == 1) {
-          all.models[[i]] <- loess(y ~ x, data.frame(x=grids[[i]][c.train], y=yVal),
+          all.models[[i]] <- stats::loess(y ~ x, data.frame(x=grids[[i]][c.train], y=yVal),
                                  span=model$lo.span, control = loess.control(surface = "direct"))
           stopProb <- predict(all.models[[i]], data.frame(x=grids[[i]]),se=TRUE)
         }
         if (ncol(grids[[i]]) ==2) {
-          all.models[[i]] <- loess(y ~ x1+x2, data.frame(x1=grids[[i]][c.train,1], x2=grids[[i]][c.train,2], y=yVal),
+          all.models[[i]] <- stats::loess(y ~ x1+x2, data.frame(x1=grids[[i]][c.train,1], x2=grids[[i]][c.train,2], y=yVal),
                                    span=model$lo.span, control = loess.control(surface = "direct"))
           stopProb <- predict(all.models[[i]], new=data.frame(x1=grids[[i]][,1],x2=grids[[i]][,2]))
         }
@@ -138,17 +138,17 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
         stopProb <- 1-pnorm( (stopProb$fit)/stopProb$se)
     }
     if (method == "earth") {  # Multivariate Adaptive Regression Splines
-       all.models[[i]] <- earth(x=grids[[i]][c.train,,drop=F],y=yVal,
+       all.models[[i]] <- earth::earth(x=grids[[i]][c.train,,drop=F],y=yVal,
                                 degree=model$earth.deg,nk=model$earth.nk,thresh=model$earth.thresh)
        timingValue <- predict(all.models[[i]],grids[[i]])
     }
     if (method == "deepnet") {  # Neural Network via the deepnet library
-      all.models[[i]] <- nn.train(x=grids[[i]][c.train,,drop=F],y=yVal,
+      all.models[[i]] <- deepnet::nn.train(x=grids[[i]][c.train,,drop=F],y=yVal,
                                hidden=model$nn.layers)
-      timingValue <- nn.predict(all.models[[i]],grids[[i]])
+      timingValue <- deepnet::nn.predict(all.models[[i]],grids[[i]])
     }
     if (method == "nnet") {  # Neural Network via the nnet library
-      all.models[[i]] <- nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
+      all.models[[i]] <- mnet::nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
                               size=model$nn.nodes, linout=TRUE, maxit=1000,trace=FALSE)
       timingValue <- predict(all.models[[i]],grids[[i]], type="raw")
     }
@@ -165,7 +165,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
           rvmk <- "rbfdot"
       else
           rvmk <- model$rvm.kernel
-      all.models[[i]] <- rvm(x=grids[[i]][c.train], y=yVal,kernel=rvmk)
+      all.models[[i]] <- kernlab::rvm(x=grids[[i]][c.train], y=yVal,kernel=rvmk)
       timingValue <- predict(all.models[[i]], new=grids[[i]])
     }
     if (method == "npreg") {
@@ -182,7 +182,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
         else
           kerorder <- model$np.kerorder
 
-        all.models[[i]] <- npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+        all.models[[i]] <- np::npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
                            regtype=regtype, ckertype=kertype,ckerorder=kerorder)
         timingValue <- predict(all.models[[i]],new=grids[[i]])
     }
@@ -260,6 +260,11 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, ie the
 #' method only builds the emulators. Thus, to obtain an actual estimate of the opton price
 #' combine with \code{\link{forward.sim.policy}}.
+#' 
+#' @author Mike Ludkovski
+#' @importFrom hetGP find_reps mleHetGP mleHomGP
+#' @importFrom DiceKriging km
+#' @importFrom earth earth
 #' 
 #' @export
 #' 
@@ -397,7 +402,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
     }
     else if(method =="hetgp") {
       big.payoff <- model$payoff.func(big.grid,model)
-      hetData <- find_reps(big.grid, fsim$payoff-big.payoff)
+      hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
       fits[[i]] <- hetGP::mleHetGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
       #ehtPred <- predict(x=check.x, object=hetModel)
@@ -409,13 +414,13 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
     }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
-      fits[[i]] <- smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
+      fits[[i]] <- stats::smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
     else if (method == "rvm") {
         if (is.null(model$rvm.kernel))
           rvmk <- "rbfdot"
         else
           rvmk <- model$rvm.kernel
-        fits[[i]] <- rvm(x=init.grid, y=all.X[,model$dim+1],kernel=rvmk)
+        fits[[i]] <- kernlab::rvm(x=init.grid, y=all.X[,model$dim+1],kernel=rvmk)
     }
     else if (method == "npreg") {
         if (is.null(model$np.kertype))
@@ -431,7 +436,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
         else
           kerorder <- model$np.kerorder
 
-        fits[[i]] <- npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+        fits[[i]] <- np::npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
                            regtype=regtype, ckertype=kertype,ckerorder=kerorder)
     }
 
@@ -634,7 +639,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
         rvmk <- "rbfdot"
       else
         rvmk <- model$rvm.kernel
-      fits[[i,kk]] <- rvm(x=init.grid, y=all.X[,model$dim+1],kernel=rvmk)
+      fits[[i,kk]] <- kernlab::rvm(x=init.grid, y=all.X[,model$dim+1],kernel=rvmk)
     }
     else if (method == "npreg") {
       if (is.null(model$np.kertype))
@@ -650,7 +655,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
       else
         kerorder <- model$np.kerorder
       
-      fits[[i,kk]] <- npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+      fits[[i,kk]] <- np::npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
                          regtype=regtype, ckertype=kertype,ckerorder=kerorder)
     }
   }  # end of loop over swing rights kk  
@@ -755,13 +760,13 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
     
     ### CASES DEPENDING ON METHOD
     if (method == "spline" & ncol(grids[[i]]) == 1) { # only works in 1D
-      all.models[[i]] <- smooth.spline( x=grids[[i]],y=yVal,
+      all.models[[i]] <- stats::smooth.spline( x=grids[[i]],y=yVal,
                                         nknots = model$nk)
       timingValue <- predict(all.models[[i]],grids[[i]])$y
     }
     
     if (method == "randomforest") {
-      all.models[[i]] <-  randomForest(x=grids[[i]],y=yVal,
+      all.models[[i]] <-  randomForest::randomForest(x=grids[[i]],y=yVal,
                                        ntree=model$rf.ntree,replace=F,maxnode=model$rf.maxnode)
       timingValue <- predict(all.models[[i]],grids[[i]],predict.all=T)$individual
       timingValue <- apply(timingValue,1,mean)   # median or mean prediction could be used
@@ -769,28 +774,28 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
     
     if (method == "loess" & ncol(grids[[i]]) <= 2) { # LOESS only works in 1D or 2D
       if (ncol(grids[[i]]) == 1) {
-        all.models[[i]] <- loess(y ~ x, data.frame(x=grids[[i]], y=yVal),
+        all.models[[i]] <- stats::loess(y ~ x, data.frame(x=grids[[i]], y=yVal),
                                  span=model$lo.span, control = loess.control(surface = "direct"))
         timingValue <- predict(all.models[[i]], data.frame(x=grids[[i]]),se=TRUE)$fit
       }
       if (ncol(grids[[i]]) ==2) {
-        all.models[[i]] <- loess(y ~ x1+x2, data.frame(x1=grids[[i]][,1], x2=grids[[i]][,2], y=yVal),
+        all.models[[i]] <- stats::loess(y ~ x1+x2, data.frame(x1=grids[[i]][,1], x2=grids[[i]][,2], y=yVal),
                                  span=model$lo.span, control = loess.control(surface = "direct"))
         timingValue <- predict(all.models[[i]], new=data.frame(x1=grids[[i]][,1],x2=grids[[i]][,2]))$fit
       }
     }
     if (method == "earth") {  # Multivariate Adaptive Regression Splines
-      all.models[[i]] <- earth(x=grids[[i]],y=yVal,
+      all.models[[i]] <- earth::earth(x=grids[[i]],y=yVal,
                                degree=model$earth.deg,nk=model$earth.nk,thresh=model$earth.thresh)
       timingValue <- predict(all.models[[i]],grids[[i]])
     }
     if (method == "deepnet") {  # Neural Network via the deepnet library
-      all.models[[i]] <- nn.train(x=grids[[i]][c.train,,drop=F],y=yVal,
+      all.models[[i]] <- deepnet::nn.train(x=grids[[i]][c.train,,drop=F],y=yVal,
                                   hidden=model$nn.layers)
-      timingValue <- nn.predict(all.models[[i]],grids[[i]])
+      timingValue <- deepnet::nn.predict(all.models[[i]],grids[[i]])
     }
     if (method == "nnet") {  # Neural Network via the nnet library
-      all.models[[i]] <- nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
+      all.models[[i]] <- nnet::nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
                                   size=model$nn.nodes, linout=TRUE, maxit=1000,trace=FALSE)
       timingValue <- predict(all.models[[i]],grids[[i]], type="raw")
     }
@@ -798,7 +803,7 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
     # Default
     if (method =="lm") {  # Linear regression with specified basis functions
       matb <- model$bases(grids[[i]])
-      all.models[[i]] <- lm(yVal ~ matb)
+      all.models[[i]] <- stats::lm(yVal ~ matb)
       lenn <- length(all.models[[i]]$coefficients)
       timingValue <-  all.models[[i]]$coefficients[1] +
         model$bases(grids[[i]]) %*% all.models[[i]]$coefficients[2:lenn]
@@ -808,7 +813,7 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
         rvmk <- "rbfdot"
       else
         rvmk <- model$rvm.kernel
-      rvModel <- rvm(x=grids[[i]], y=yVal,kernel=rvmk)
+      rvModel <- kernlab::rvm(x=grids[[i]], y=yVal,kernel=rvmk)
       timingValue <- predict(rvModel, new=grids[[i]])
     }
     

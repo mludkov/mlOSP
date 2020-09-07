@@ -1,5 +1,5 @@
 #####################
-#' ABSUR overheads
+#' ABSUR overhead
 #'
 #' @title Calculates c_over in ABSUR
 #' @param theta0, theta1 and theta2: parameters in linear regression
@@ -20,6 +20,11 @@ CalcOverhead <- function(theta0, theta1, theta2, n) {
 #' @param r_cand: candidate batch size vector
 #' @param overhead: estimated computation overhead in GP
 #' @param t0: overhead for individual simulation
+#' @references 
+#' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+#' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+#' @author Xiong Lyu
+#' @seealso \link{\code{osp.seq.batch.design}}
 #' @export
 cf.absur <- function(objMean, objSd, nugget, r_cand, overhead, t0) {
   # expand mean and sd vectors to matrix of size len(x_cand) * len(r_cand)
@@ -40,7 +45,7 @@ cf.absur <- function(objMean, objSd, nugget, r_cand, overhead, t0) {
 }
 
 #####################
-#' RB for Adaptive Batching
+#' Ratchet Batching heuristic
 #'
 #' @title Calculates weights for batch size in RB
 #' @param objSd_at_x_optim: posterior standard deviation of the response at the selected new input
@@ -48,6 +53,10 @@ cf.absur <- function(objMean, objSd, nugget, r_cand, overhead, t0) {
 #' @param nugget: the noise variance to compute the ALC factor
 #' @param last_r: the last batch size
 #' @param gamma: threshold compared with sd
+#' @seealso \link{\code{osp.seq.batch.design}}
+#' @references 
+#' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+#' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
 #' @export
 batch.rb <- function(objSd_at_x_optim, r_cand, last_r, nugget, gamma) {
   eta = 0.8
@@ -78,13 +87,23 @@ batch.rb <- function(objSd_at_x_optim, r_cand, last_r, nugget, gamma) {
 }
 
 #####################
-#' MLB for Adaptive Batching
+#' Multi-Level Batching Heuristic
 #'
-#' @title Calculates weights for batch size in MLB
+#' @description Calculates weights for batch size in MLB when called from \link{osp.seq.batch.design}
 #' @param objSd_at_x_optim: posterior standard deviation of the response at the selected new input
 #' @param r_cand: candidate batch size vector
 #' @param nugget: the noise variance to compute the ALC factor
 #' @param gamma: threshold compared with sd
+#' @return  list containing:
+#'  \itemize{ 
+#'  \item \code{roptim}: new replication count
+#'  \item \code{gamma}: new gamma variable
+#'  }
+#' @references 
+#' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+#' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+#' 
+#' @seealso \link{\code{osp.seq.batch.design}}
 #' @export
 batch.mlb <- function(objSd_at_x_optim, r_cand,  nugget, gamma) {
   eta = 0.5;
@@ -108,7 +127,7 @@ batch.mlb <- function(objSd_at_x_optim, r_cand,  nugget, gamma) {
 #####################
 #' ADSA for Adaptive Batching
 #'
-#' @title Calculates reallocated batch size or new input location for ADSA
+#' @title Calculates reallocated batch size or new input location for Adaptive Design with Sequential Allocation
 #' @param fit: gp/tp fit
 #' @param r_seq: batch size vector for existing inputs
 #' @param xtest: testing points to compare reallocation and adding a new inputs
@@ -116,7 +135,18 @@ batch.mlb <- function(objSd_at_x_optim, r_cand,  nugget, gamma) {
 #' @param x_new: new input location selected by one EI criteria
 #' @param r0: total number of new simulations
 #' @param nugget: the noise variance to compute the ALC factor
-#' @param method: "km" or "trainkm" or "hetgp" or "homtp"
+#' @param method: \code{km} or \code{trainkm} or \code{hetgp} or \code{homtp}
+#' @return a list containing
+#' \itemize{
+#' \item \code{xoptim}: new design input (NULL if re-allocation is chosen)
+#' \item \code{roptim}: added replications (a scalar r0 if new input chosen, 
+#' a vector containing the re-allocation amounts otherwise
+#' }
+#' @references 
+#' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+#' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+#' @author Xiong Lyu
+#' @seealso \link{\code{osp.seq.batch.design}}
 #' @export
 batch.adsa <- function(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method) {
   x_optim = NULL
@@ -188,6 +218,11 @@ batch.adsa <- function(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method) {
 #' @param xt_dens: density of xtest
 #' @param r0: total number of new simulations
 #' @param method: "km" or "trainkm" or "hetgp" or "homtp"
+#' @references 
+#' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+#' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+#' @author Xiong Lyu
+#' @seealso \link{\code{osp.seq.batch.design}}
 #' @export
 batch.ddsa <- function(fit, r_seq, xtest, xt_dens, r0, method) {
   if (method == "km" | method == "trainkm") {
@@ -241,6 +276,10 @@ r.reallocate <- function(L, K, xt_dens, r_seq, r0) {
 #' @param r: total number of simulations
 #' @param U: weighted matrix for pegging algorithm
 #' @param r_seq: batch size vector for existing inputs
+#' @references 
+#' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+#' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+#' @author Xiong Lyu
 #' @export
 pegging.alg <- function(r, U, r_seq) {
   is_end = FALSE

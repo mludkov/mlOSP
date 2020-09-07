@@ -2,7 +2,7 @@
 % Please edit documentation in R/batchDesign_utils.R
 \name{batch.adsa}
 \alias{batch.adsa}
-\title{Calculates reallocated batch size or new input location for ADSA}
+\title{Calculates reallocated batch size or new input location for Adaptive Design with Sequential Allocation}
 \usage{
 batch.adsa(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method)
 }
@@ -21,8 +21,26 @@ batch.adsa(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method)
 
 \item{nugget:}{the noise variance to compute the ALC factor}
 
-\item{method:}{"km" or "trainkm" or "hetgp" or "homtp"}
+\item{method:}{\code{km} or \code{trainkm} or \code{hetgp} or \code{homtp}}
+}
+\value{
+a list containing
+\itemize{
+\item \code{xoptim}: new design input (NULL if re-allocation is chosen)
+\item \code{roptim}: added replications (a scalar r0 if new input chosen, 
+a vector containing the re-allocation amounts otherwise
+}
 }
 \description{
 ADSA for Adaptive Batching
+}
+\references{
+M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+}
+\seealso{
+\link{\code{osp.seq.batch.design}}
+}
+\author{
+Xiong Lyu
 }

@@ -12,7 +12,7 @@ CalcOverhead(theta0, theta1, theta2, n)
 \item{n:}{current design size}
 }
 \description{
-ABSUR overheads
+ABSUR overhead
 }
 \details{
 compute the estimated overhead in ABSUR

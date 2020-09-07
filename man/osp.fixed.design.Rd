@@ -68,3 +68,6 @@ model2d <- list(K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
  T=1,dt=0.04,dim=2, sim.func=sim.gbm, payoff.func=put.payoff,pilot.nsims=1000,
  batch.nrep=100,kernel.family="matern5_2",N=400)
 }
+\author{
+Mike Ludkovski
+}

@@ -2,16 +2,16 @@
 % Please edit documentation in R/ospSeqBatchDesign.R
 \name{osp.seq.batch.design}
 \alias{osp.seq.batch.design}
-\title{Adaptive Batching designs for optimal stopping based on Lyu & Ludkovski 2020}
+\title{Adaptive Batching designs for optimal stopping}
 \usage{
 osp.seq.batch.design(model, method = "km", t0 = 0.01, is.gbm = FALSE)
 }
 \arguments{
-\item{method:}{either \code{km} or \code{hetgp} to select the GP emulator to apply}
+\item{\code{method}:}{either \code{km} or \code{hetgp} to select the GP emulator to apply}
 
-\item{t0:}{parameter \code{t0} for \code{ABSUR} [Default value is 0.01]}
+\item{\code{t0}:}{parameter \code{t0} for \code{ABSUR} [Default value is 0.01]}
 
-\item{is.gbm:}{flag to indicate whether the underlying simulator is independent log-normals (used 
+\item{\code{is.gbm}:}{flag to indicate whether the underlying simulator is independent log-normals (used 
 as part of density computation for integrated EI criteria) [Default FALSE]}
 }
 \value{
@@ -26,11 +26,12 @@ a list containing:
 }
 }
 \description{
-Adaptive Batching designs for optimal stopping based on Lyu & Ludkovski 2020
+Sequential experimental design for optimal stopping problems with several 
+adaptive batching heuristics based on Lyu & Ludkovski (2020+)
 }
 \details{
-Implements the adaptive batching strategy defined in model/batch.heuristic. 
-Calls lhs  from library \pkg{tgp}. Possible batch heuristics are:
+Implements the adaptive batching strategy defined in \code{mode$batch.heuristic}. 
+Calls \code{lhs}  from library \pkg{tgp}. Possible batch heuristics are:
 \itemize{
   \item \code{fb}: [Default] fixed batch amounts (essentially same as \link{osp.seq.design})
   \item \code{mlb}: Multi-level batching
@@ -63,4 +64,8 @@ model2d$batch.heuristic <- 'adsa'
 model2d$ei.func <- 'amcu'
 oos.obj.adsa <- osp.seq.batch.design(model2d,method="trainkm")
 # not run: plt.2d.surf.with.batch(oos.obj.adsa$fit[[10]],25)
+}
+\references{
+M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
 }

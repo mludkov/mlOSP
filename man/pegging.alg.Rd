@@ -16,3 +16,10 @@ pegging.alg(r, U, r_seq)
 \description{
 Pegging algorithm
 }
+\references{
+M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
+in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+}
+\author{
+Xiong Lyu
+}
