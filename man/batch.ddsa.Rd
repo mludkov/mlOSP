@@ -24,10 +24,10 @@ DDSA for Adaptive Batching
 }
 \references{
 M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
-in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+in Noisy Level Set Estimation, <http://arxiv.org/abs/2003.08579>
 }
 \seealso{
-\link{\code{osp.seq.batch.design}}
+\code{\link[mlOSP]{osp.seq.batch.design}}
 }
 \author{
 Xiong Lyu

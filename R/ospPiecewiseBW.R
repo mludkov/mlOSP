@@ -7,14 +7,15 @@
 #' Must have N/model$nChildren^model$dim as an integer.
 #' 
 #' @param N     the number of forward training paths
-#' @param model a list defining all model parameters. Must contain the following fields: \code{T, dt, dim, nChildren},
+#' @param model a list defining all model parameters. Must contain the following fields:
+#' \cr \code{T, dt, dim, nChildren},
 #'        \code{sim.func, x0, r, payoff.func}
 #' @param verb if specified, produces plots of the 1-dim fit every \code{verb} time-steps
 #' [default is zero]
 #' @param test.paths (optional) a list containing out-of-sample paths to obtain a price estimate
 #'       
-#'   @return a list with the following fields:
-#'   \itemize{
+#' @return a list with the following fields:
+#' \itemize{
 #' \item \code{price} is the scalar optimal reward;
 #' \item \code{tau} is a vector of stopping times over in-sample paths;
 #' \item \code{test} is a vector of out-of-sample pathwise rewards;

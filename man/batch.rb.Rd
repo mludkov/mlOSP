@@ -25,5 +25,5 @@ M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates w
 in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
 }
 \seealso{
-\link{\code{osp.seq.batch.design}}
+\code{\link[mlOSP]{osp.seq.batch.design}}
 }

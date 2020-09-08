@@ -644,7 +644,7 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
 #'  \item \code{tau} matrix of the times when stopped. Columns represent the rights exercised
 #'  \item  \code{nsims} number of total 1-step simulations performed
 #' }
-#' @details Should be used in conjuction with the \link{\code{swing.fixed.design}} function that builds the emulators. 
+#' @details Should be used in conjuction with the \code{\link[mlOSP]{swing.fixed.design}} function that builds the emulators. 
 swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=FALSE)
 {
   nsim <- 0

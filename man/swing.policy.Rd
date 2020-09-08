@@ -46,5 +46,5 @@ a list containing:
 Simulate \eqn{\sum_k h(X_{tau_k})} using \code{fit} emulators
 }
 \details{
-Should be used in conjuction with the \link{\code{swing.fixed.design}} function that builds the emulators.
+Should be used in conjuction with the \code{\link[mlOSP]{swing.fixed.design}} function that builds the emulators.
 }
