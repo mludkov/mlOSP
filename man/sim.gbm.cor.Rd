@@ -20,5 +20,6 @@ Simulate paths of correlated GBM with a constant correlation
 }
 \details{
 Simulate correlated multivariate Geometric Brownian motion
-with a given \code{model$rho} and \strong{identical} \code{model$sigma}'s
+with a given \code{model$rho} and \strong{identical} \code{model$sigma}'s.
+Calls \code{rmvnorm} from \pkg{mvtnorm}
 }

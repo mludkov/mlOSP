@@ -7,9 +7,9 @@
 CalcOverhead(theta0, theta1, theta2, n)
 }
 \arguments{
-\item{theta0, }{theta1 and theta2: parameters in linear regression}
+\item{theta0, theta1, theta2}{parameters in linear regression}
 
-\item{n:}{current design size}
+\item{n}{current design size}
 }
 \description{
 ABSUR overhead

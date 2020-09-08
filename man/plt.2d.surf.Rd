@@ -16,14 +16,14 @@ plt.2d.surf(
 )
 }
 \arguments{
-\item{fit}{can be any of the types supported by \code{\link{forward.sim.policy}}}
+\item{fit}{a fitted emulator. can be any of the types supported by \code{\link{forward.sim.policy}}}
 
 \item{x, y}{locations to use for the \code{predict()} functions. Default is a 200x200 fine grid.
 Passed to \code{expand.grid}}
 
 \item{ub}{clip the surface with an upper bound  to see the zero-contour better}
 
-\item{show.var}{-- if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
+\item{show.var}{if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
 This only works for \code{km} and \code{het/homGP/homTP} objects}
 
 \item{only.contour}{-- just add the zero-contour, no raster plot (uses \code{contour}, no ggplot)}
@@ -40,6 +40,6 @@ Two-dimensional raster+contour+point plot of an mlOSP emulator at a single time 
 }
 \details{
 Uses the raster plot from \pkg{ggplot2}. For GP-based objects, also shows the unique design
-sites via geom_point. See \code{\link{also plt.2d.surf.batch}} for a similar plot 
+sites via geom_point. See \code{\link{plt.2d.surf.batch}} for a similar plot 
 for \code{osp.seq.batch.design} emulators.
 }

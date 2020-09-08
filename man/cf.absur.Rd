@@ -7,17 +7,17 @@
 cf.absur(objMean, objSd, nugget, r_cand, overhead, t0)
 }
 \arguments{
-\item{objMean:}{predicted mean response}
+\item{objMean}{predicted mean response}
 
-\item{objSd:}{posterior standard deviation of the response}
+\item{objSd}{posterior standard deviation of the response}
 
-\item{nugget:}{the noise variance to compute the ALC factor}
+\item{nugget}{the noise variance to compute the ALC factor}
 
-\item{r_cand:}{candidate batch size vector}
+\item{r_cand}{candidate batch size vector}
 
-\item{overhead:}{estimated computation overhead in GP}
+\item{overhead}{estimated computation overhead in GP}
 
-\item{t0:}{overhead for individual simulation}
+\item{t0}{overhead for individual simulation}
 }
 \description{
 ABSUR for Adaptive Batching

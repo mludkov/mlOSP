@@ -7,10 +7,17 @@
 cf.el(objMean, objSd)
 }
 \arguments{
-\item{objMean:}{predicted mean response}
+\item{objMean}{predicted mean response}
 
-\item{objSd:}{posterior standard deviation of the response}
+\item{objSd}{posterior standard deviation of the response}
 }
 \description{
 Expected Loss for Contour Finding
+}
+\references{
+Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+ Journal of Computational Finance, 22(1), 37-77, 2018
+}
+\author{
+Mike Ludkovski
 }

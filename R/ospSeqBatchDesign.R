@@ -18,23 +18,27 @@
 #' All heuristics also require specifying the acquisition function for expected improvement criterion 
 #' via \code{model$ei.func}, see \link{osp.seq.design}
 #' 
-#' @param \code{method}: either \code{km} or \code{hetgp} to select the GP emulator to apply
-#' @param \code{t0}: parameter \code{t0} for \code{ABSUR} [Default value is 0.01]
-#' @param \code{is.gbm}: flag to indicate whether the underlying simulator is independent log-normals (used 
+#' @param model  a list containing all the model parameters.
+#' 
+#' @param method either \code{km} or \code{hetgp} to select the GP emulator to apply
+#' @param t0 parameter \code{t0} for \code{ABSUR} heuristic [Default value is 0.01]
+#' @param is.gbm flag to indicate whether the underlying simulator is independent log-normals (used 
 #' as part of density computation for integrated EI criteria) [Default FALSE]
 #' @export
 #' @return a list containing:
 #' \itemize{
 #' \item \code{fit} a list of fitted response surfaces
-#' \item \code{timeElapsed} vector of time cost for each round
-#' \item \code{nsims} total number of 1-step sim.func calls
+#' \item \code{timeElapsed} vector of time costs for each round
+#' \item \code{nsims} total number of 1-step \code{model$sim.func} calls
 #' \item \code{empLoss} vector of empirical losses
-#' \item \code{ndesigns}: number of design size k_T
+#' \item \code{ndesigns}: number of unique designs k_T
 #' \item \code{batches}: matrix of replications r_i, indexed by time-steps and by sequential rounds
 #' }
 #' @references 
 #' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
-#' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+#' in Noisy Level Set Estimation, <http://arxiv.org/abs/2003.08579>
+#' 
+#' @seealso [mlOSP::osp.seq.design]
 #' 
 #' @examples
 #' sob30 <- randtoolbox::sobol(55, d=2)  # construct a space-filling initial design

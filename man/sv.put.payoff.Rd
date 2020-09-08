@@ -7,9 +7,9 @@
 sv.put.payoff(x, model)
 }
 \arguments{
-\item{x}{is a vector of asset prices}
+\item{x}{First coordinate is the asset price, the rest are vol factors}
 
-\item{x:}{First coordinate is the asset price, the rest are vol factors}
+\item{model}{list containing model params. Uses \code{model$K} as the Put strike.}
 }
 \description{
 Put payoff for a stoch vol model

@@ -2,15 +2,15 @@
 ####################################
 #' Simulate paths of Geometric Brownian Motion with constant parameters
 #'
-#' @details Simulate from \eqn{p(X_t|X_{t-1})}
-#' Use log-normal transition density specified by the \code{model}
+#' @details Simulate from \eqn{p(X_t|X_{t-1})}.
+#' Use log-normal transition density specified by the \code{model} parameters
 #' @param x0 is the starting values (matrix of size N x model$dim)
 #' @param dt is the step size in time. Defaults to \code{model$dt}
-#' @param model contains all the other parameters, including volatility \code{model$sigma}
-#' interest rate \code{model$r} and continuous dividend yield \code{model$div}
+#' @param model a list containing all the other parameters, including volatility \code{model$sigma},
+#' interest rate \code{model$r} and continuous dividend yield \code{model$div}.
 #' @return a vector of same dimensions as x0
 #' @export
-#' @md
+#'
 sim.gbm <- function( x0, model, dt=model$dt)
 {
     len <- nrow(x0)
@@ -71,14 +71,16 @@ sim.logOU_Discrete <- function( x0, model, dt=model$dt)
 #' @inheritParams sim.gbm
 #' @export
 #' @param x0 should have 2 or 3 columns
-#' @section Usage:  Need the following fields in model: \code{svMean} (mean-reversion level), 
+#' @param useEuler flag, whether to use the exact transition for the StochVol factor, or its 
+#' Euler approximation
+#' @details:  Need the following fields in model: \code{svMean} (mean-reversion level), 
 #' \code{svAlpha} (mean-reversion strength), \code{svEpsY} (fast scaling parameter), 
 #' \code{svVol} (volatility of volatility), \code{svRho} (correlation with asset S).
 #' For 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{svAlphaZ} 
 #' (mean-reversion strength), \code{svDeltaZ} (slow scaling parameter),
 #' \code{svVolZ} (Z volatility), \code{svRhoZ} (correlation between Z and S), \code{svRhoYZ} 
 #' ( correlation between the fast and slow SV factors)
-sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
+sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=FALSE)
 {
     len <- nrow(x0)
     newX <- x0
@@ -139,7 +141,9 @@ sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
 #' Simulate paths of correlated GBM with a constant correlation
 #'
 #' @details Simulate correlated multivariate Geometric Brownian motion
-#' with a given \code{model$rho} and **identical** \code{model$sigma}'s
+#' with a given \code{model$rho} and **identical** \code{model$sigma}'s.
+#' Calls \code{rmvnorm} from \pkg{mvtnorm}
+#' 
 #' 
 #'
 #' @param x0 is the starting values (vector)
@@ -148,6 +152,7 @@ sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=F)
 #' In particular, need \code{model$r, model$rho, model$sigma, model$div, model$dim}
 #' Note that \code{model$sigma} is the **volatility** parameter (scalar)
 #' @export
+#' @importFrom mvtnorm rmvnorm
 #' @md
 sim.gbm.cor <- function( x0, model, dt=model$dt)
 {
@@ -165,23 +170,24 @@ sim.gbm.cor <- function( x0, model, dt=model$dt)
 #' Simulate paths of correlated GBM
 #'
 #' @details Simulate correlated multivariate Geometric Brownian motion
-#' with a given \code{model$rho} and arbitrary \code{model$sigma}'s. Calls rmvnorm
+#' with a given \code{model$rho} and arbitrary \code{model$sigma}'s. Calls \code{rmvnorm}
 #' from \pkg{mvtnorm}
 #' 
 #'
-#' @param x0 is the starting values. Should be a matrix of size N x model$dim)
-#' @param dt is the step size [Defaults to model$dt]
+#' @param x0 is the starting values. Should be a matrix of size N x \code{model$dim})
+#' @param dt is the step size (Defaults to \code{model$dt})
 #' @param model contains all the other parameters.
 #' In particular, need \code{model$r, model$rho, model$sigma, model$div, model$dim}
 #' Note that \code{model$sigma} is the **volatility vector**
 #' @return a vector of the new states (same dimension as x0)
 #' @export
+#' @importFrom mvtnorm rmvnorm
 #' @md
 sim.gbm.matrix <- function( x0, model, dt=model$dt)
 {
   len <- nrow(x0)
   
-  newX <- x0*exp( rmvnorm(len, sig=model$sigma)*sqrt(dt) +
+  newX <- x0*exp( mvtnorm::rmvnorm(len, sig=model$sigma)*sqrt(dt) +
                     (model$r- model$div- diag(model$sigma)/2)*dt)
   
   return (newX)
@@ -209,7 +215,7 @@ sim.gbm.asian <- function( x0, model, dt=model$dt)
 
 ####################################
 #' Simulate 1D Brownian Motion for Moving Average Asian Options
-#' @detals first column is S_t, other columns are lagged S_t's
+#' @details first column is S_t, other columns are lagged S_t's
 #' the lags are in terms of dt
 #' @inheritParams sim.gbm
 #' @export

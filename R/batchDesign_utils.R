@@ -2,10 +2,10 @@
 #' ABSUR overhead
 #'
 #' @title Calculates c_over in ABSUR
-#' @param theta0, theta1 and theta2: parameters in linear regression
-#' @param n: current design size
+#' @param theta0,theta1,theta2 parameters in linear regression
+#' @param n current design size
 #' @details   compute the estimated overhead in ABSUR
-#' @export
+#'
 CalcOverhead <- function(theta0, theta1, theta2, n) {
   overhead = theta0 + theta1*n + theta2*n^2;
 }
@@ -14,12 +14,12 @@ CalcOverhead <- function(theta0, theta1, theta2, n) {
 #' ABSUR for Adaptive Batching
 #'
 #' @title Calculates weights for location and batch size in ABSUR
-#' @param objMean: predicted mean response
-#' @param objSd: posterior standard deviation of the response
-#' @param nugget: the noise variance to compute the ALC factor
-#' @param r_cand: candidate batch size vector
-#' @param overhead: estimated computation overhead in GP
-#' @param t0: overhead for individual simulation
+#' @param objMean predicted mean response
+#' @param objSd posterior standard deviation of the response
+#' @param nugget the noise variance to compute the ALC factor
+#' @param r_cand candidate batch size vector
+#' @param overhead estimated computation overhead in GP
+#' @param t0 overhead for individual simulation
 #' @references 
 #' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
 #' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
@@ -48,11 +48,11 @@ cf.absur <- function(objMean, objSd, nugget, r_cand, overhead, t0) {
 #' Ratchet Batching heuristic
 #'
 #' @title Calculates weights for batch size in RB
-#' @param objSd_at_x_optim: posterior standard deviation of the response at the selected new input
-#' @param r_cand: candidate batch size vector
-#' @param nugget: the noise variance to compute the ALC factor
-#' @param last_r: the last batch size
-#' @param gamma: threshold compared with sd
+#' @param objSd_at_x_optim posterior standard deviation of the response at the selected new input
+#' @param r_cand candidate batch size vector
+#' @param nugget the noise variance to compute the ALC factor
+#' @param last_r the last batch size
+#' @param gamma threshold compared with sd
 #' @seealso \link{\code{osp.seq.batch.design}}
 #' @references 
 #' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
@@ -90,10 +90,10 @@ batch.rb <- function(objSd_at_x_optim, r_cand, last_r, nugget, gamma) {
 #' Multi-Level Batching Heuristic
 #'
 #' @description Calculates weights for batch size in MLB when called from \link{osp.seq.batch.design}
-#' @param objSd_at_x_optim: posterior standard deviation of the response at the selected new input
-#' @param r_cand: candidate batch size vector
-#' @param nugget: the noise variance to compute the ALC factor
-#' @param gamma: threshold compared with sd
+#' @param objSd_at_x_optim posterior standard deviation of the response at the selected new input
+#' @param r_cand candidate batch size vector
+#' @param nugget the noise variance to compute the ALC factor
+#' @param gamma threshold compared with sd
 #' @return  list containing:
 #'  \itemize{ 
 #'  \item \code{roptim}: new replication count
@@ -128,14 +128,14 @@ batch.mlb <- function(objSd_at_x_optim, r_cand,  nugget, gamma) {
 #' ADSA for Adaptive Batching
 #'
 #' @title Calculates reallocated batch size or new input location for Adaptive Design with Sequential Allocation
-#' @param fit: gp/tp fit
-#' @param r_seq: batch size vector for existing inputs
-#' @param xtest: testing points to compare reallocation and adding a new inputs
-#' @param xt_dens: density of xtest
-#' @param x_new: new input location selected by one EI criteria
-#' @param r0: total number of new simulations
-#' @param nugget: the noise variance to compute the ALC factor
-#' @param method: \code{km} or \code{trainkm} or \code{hetgp} or \code{homtp}
+#' @param fit GP/TP fit
+#' @param r_seq batch size vector for existing inputs
+#' @param xtest testing points to compare reallocation and adding a new inputs
+#' @param xt_dens density of xtest
+#' @param x_new new input location selected by the EI criteria
+#' @param r0 total number of new simulations
+#' @param nugget the noise variance to compute the ALC factor
+#' @param method \code{km} or \code{trainkm} or \code{hetgp} or \code{homtp}
 #' @return a list containing
 #' \itemize{
 #' \item \code{xoptim}: new design input (NULL if re-allocation is chosen)
@@ -212,12 +212,12 @@ batch.adsa <- function(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method) {
 #' DDSA for Adaptive Batching
 #'
 #' @title Calculates reallocated batch size for DDSA
-#' @param fit: gp/tp fit
-#' @param r_seq: batch size vector for existing inputs
-#' @param xtest: testing points to compare reallocation and adding a new inputs
-#' @param xt_dens: density of xtest
-#' @param r0: total number of new simulations
-#' @param method: "km" or "trainkm" or "hetgp" or "homtp"
+#' @param fit gp/tp fit
+#' @param r_seq batch size vector for existing inputs
+#' @param xtest testing points to compare reallocation and adding a new inputs
+#' @param xt_dens density of xtest
+#' @param r0 total number of new simulations to add
+#' @param method "km" or "trainkm" or "hetgp" or "homtp"
 #' @references 
 #' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
 #' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
@@ -257,12 +257,11 @@ batch.ddsa <- function(fit, r_seq, xtest, xt_dens, r0, method) {
 #' New batch size calculator
 #'
 #' @title Calculates reallocated batch size
-#' @param L: lower triangle of cholesky decomposition of covariance matrix
-#' @param K: covariance matrix
-#' @param xt_dens: density of xtest
-#' @param r_seq: batch size vector for existing inputs
-#' @param r0: total number of new simulations
-#' @export
+#' @param L lower triangle of cholesky decomposition of covariance matrix
+#' @param K covariance matrix
+#' @param xt_dens density of xtest
+#' @param r_seq batch size vector for existing inputs
+#' @param r0 total number of new simulations
 r.reallocate <- function(L, K, xt_dens, r_seq, r0) {
   U <- solve(t(L)) %*% (solve(L) %*% K) %*% xt_dens
   r_seq_new <- pegging.alg(r0 + sum(r_seq), U, r_seq)
@@ -270,17 +269,16 @@ r.reallocate <- function(L, K, xt_dens, r_seq, r0) {
 }
 
 #####################
-#' Pegging algorithm
+#' Pegging algorithm for ADSA/DDSA
 #'
-#' @title Calculates reallocated batch size
-#' @param r: total number of simulations
-#' @param U: weighted matrix for pegging algorithm
-#' @param r_seq: batch size vector for existing inputs
+#' @title Calculates reallocated batch size for ADSA
+#' @param r total number of simulations
+#' @param U weighted matrix for pegging algorithm
+#' @param r_seq batch size vector for existing inputs
 #' @references 
 #' M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
 #' in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
 #' @author Xiong Lyu
-#' @export
 pegging.alg <- function(r, U, r_seq) {
   is_end = FALSE
   indexes = seq(1, length(r_seq))
@@ -401,22 +399,23 @@ plot_style <- function(base_size = 14, base_family = "Helvetica",...) {
 }
 
 ######
-#' two-dimensional image+contour plot with batch size
-#' @title Visualize 2D emulator + stopping region + batch size
-#' @details Uses the quilt.plot command from \pkg{fields}
+#' two-dimensional image+contour plot with replication counts for an \code{osp.seq.batch.design} fit
+#' @title Visualize 2D emulator + stopping region + batch amounts 
 #'
 #' @param x,y locations to use for the \code{predict()} functions. Default is a 200x200 fine grid.
 #' Passed to \code{expand.grid}
-#' @param fit can be any of the types supported by \code{\link{forward.sim.policy}}
-#' @param show.var -- if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
+#' @param fit An emulator object. Can be any of the types supported by \code{\link{forward.sim.policy}}
+#' @param show.var if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
 #' This only works for \code{km} and \code{het/homGP} objects
-#' @param only.contour -- just add the zero-contour, no quilt.plot
+#' @param only.contour -- just add the zero-contour, no geom_raster
 #' @param ub to create an upper bound to see the zero-contour better
-#' @param .. -- pass additional options to \code{quilt.plot}
-#' @param contour.col (default is "red") -- color of the zero contour
+#' @param contour.col (default is "black") -- color of the zero contour
+#' @param batch_size matrix of replication counts for each input generated by \link{\code{osp.seq.batch.design}}
+#' 
+#' @author Xiong Lyu
 #' @export
 plt.2d.surf.with.batch <- function( fit, batch_size, x=seq(25,50,len=201),y = seq(25,50,len=201),ub=1e6,
-                         show.var=FALSE, only.contour=FALSE, contour.col="black",...)
+                         show.var=FALSE, only.contour=FALSE, contour.col="black")
 {
   gr <- expand.grid(x=x,y=y)
 

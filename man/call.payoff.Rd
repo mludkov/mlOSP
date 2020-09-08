@@ -2,15 +2,17 @@
 % Please edit documentation in R/payoffs.R
 \name{call.payoff}
 \alias{call.payoff}
-\title{Arithmetic average Call payoff}
+\title{Arithmetic average Call payoff \eqn{(mean(x)-K)_+}}
 \usage{
 call.payoff(x, model)
 }
 \arguments{
-\item{x}{is a vector of asset prices}
+\item{x}{is a matrix of asset prices of dimension N * \code{model$dim}}
+
+\item{model}{list containing model params. Uses \code{model$K} as the Put strike.}
 }
 \description{
-Call
+Basket Call option on average asset price
 }
 \details{
 arithmetic basket for d-dim x)

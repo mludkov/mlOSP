@@ -4,21 +4,24 @@
 \alias{sim.expOU.sv}
 \title{Simulate an exp-OU stoch volatility model with 1 or 2 vol factors}
 \usage{
-sim.expOU.sv(x0, model, dt = model$dt, useEuler = F)
+sim.expOU.sv(x0, model, dt = model$dt, useEuler = FALSE)
 }
 \arguments{
 \item{x0}{should have 2 or 3 columns}
 
-\item{model}{contains all the other parameters, including volatility \code{model$sigma}
-interest rate \code{model$r} and continuous dividend yield \code{model$div}}
+\item{model}{a list containing all the other parameters, including volatility \code{model$sigma},
+interest rate \code{model$r} and continuous dividend yield \code{model$div}.}
 
 \item{dt}{is the step size in time. Defaults to \code{model$dt}}
+
+\item{useEuler}{flag, whether to use the exact transition for the StochVol factor, or its 
+Euler approximation}
 }
 \description{
 Simulate an exp-OU stoch volatility model with 1 or 2 vol factors
 }
-\section{Usage}{
-  Need the following fields in model: \code{svMean} (mean-reversion level), 
+\details{
+:  Need the following fields in model: \code{svMean} (mean-reversion level), 
 \code{svAlpha} (mean-reversion strength), \code{svEpsY} (fast scaling parameter), 
 \code{svVol} (volatility of volatility), \code{svRho} (correlation with asset S).
 For 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{svAlphaZ} 
@@ -26,4 +29,3 @@ For 2-factor also need: \code{svMeanZ} (slow scale mean-reversion level), \code{
 \code{svVolZ} (Z volatility), \code{svRhoZ} (correlation between Z and S), \code{svRhoYZ} 
 ( correlation between the fast and slow SV factors)
 }
-

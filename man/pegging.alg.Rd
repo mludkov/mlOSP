@@ -2,19 +2,19 @@
 % Please edit documentation in R/batchDesign_utils.R
 \name{pegging.alg}
 \alias{pegging.alg}
-\title{Calculates reallocated batch size}
+\title{Calculates reallocated batch size for ADSA}
 \usage{
 pegging.alg(r, U, r_seq)
 }
 \arguments{
-\item{r:}{total number of simulations}
+\item{r}{total number of simulations}
 
-\item{U:}{weighted matrix for pegging algorithm}
+\item{U}{weighted matrix for pegging algorithm}
 
-\item{r_seq:}{batch size vector for existing inputs}
+\item{r_seq}{batch size vector for existing inputs}
 }
 \description{
-Pegging algorithm
+Pegging algorithm for ADSA/DDSA
 }
 \references{
 M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 

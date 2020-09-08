@@ -19,12 +19,18 @@ forward.sim.policy(
 
 if input \code{x} is a list, then use the grids specified by x}
 
-\item{M}{is number of time steps to forward simulate}
+\item{M}{number of time steps to forward simulate}
 
-\item{fit}{is a list of fitted emulators that determine the stopping classifiers to be used}
+\item{fit}{a list of fitted emulators that determine the stopping classifiers to be used}
 
-\item{use.qv}{boolean to indicate whether to plug-in continuation value for all remaining paths at the last time-step
-default is set to \code{FALSE}}
+\item{model}{a list containing all model parameters}
+
+\item{offset}{(internal for debugging purposes)}
+
+\item{compact}{flag; if FALSE returns additional information about forward x-values.}
+
+\item{use.qv}{boolean to indicate whether to plug-in continuation value for allpaths 
+still alive at the last time-step. Default is set to \code{FALSE}}
 }
 \value{
 a list containing:
@@ -40,6 +46,6 @@ a list containing:
 Simulate h(X_tau) using FIT (can be a dynaTree, smooth.spline, MARS or RandomForest or RVM or hetGP)
 }
 \details{
-Should be used in conjuction with the \code{osp.} functions that build the emulators. Also called
+Should be used in conjuction with the \code{osp.xx} functions that build the emulators. Also called
 internally from \code{\link{osp.fixed.design}}
 }

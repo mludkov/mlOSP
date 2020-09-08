@@ -7,7 +7,26 @@
 osp.seq.design(model, method = "km")
 }
 \arguments{
-\item{method:}{one of \code{km}, \code{trainkm}, \code{homtp} or \code{hetgp} to select the GP emulator to apply}
+\item{model}{a list containing all the model parameters. 
+
+The following model parameters are used:
+\itemize{
+\item \code{init.size}: size of starting grid (will be generated via lhs sampling if \code{init.grid} is not given)
+\item \code{pilot.nsims}: number of pilot simulations to create the search space where new inputs will be added
+(Default is 5*\code{model$init.size})
+\item \code{cand.len}: number of candidate new inputs to be proposed. The next input is chosen greedily as
+the candidate that maximizes the EI criterion. Candidate inputs are selected via \code{tgp::lhs}
+(Default is 500*\code{model$dim})
+\item \code{lhs.rect}: specification of the bounding hyper-rectangle where search is conducted
+(Default: construct based on 0.02/0.98 quantiles of the pilot paths in each dimension)
+\item \code{update.freq}: how often to re-fit the entire GP surrogate as new inputs are added (Default is 10)
+\item \code{batch.nrep} (REQUIRED): number of replicates at each unique input
+\item \code{min.lengthscale}: vector with minimum lengthscales of the surrogate (Default: 1% of lhs.rect dimensions)
+\item \code{max.lengthscale}: vector with maximum lengthscale of the surrogate (Default: 10x each of lhs.rect dimensions)
+\item \code{ei.func}: acquisition function (cSUR by Default)
+}}
+
+\item{method}{one of \code{km}, \code{trainkm}, \code{homtp} or \code{hetgp} to select the GP emulator to apply}
 }
 \value{
 a list containing:
@@ -35,24 +54,14 @@ Empirical losses are computed using \code{cf.el} function. The acquisition funct
 \code{ei.func} which can be \code{csur} (Default), \code{sur}, \code{smcu}, \code{amcu},
 \code{tmse} and \code{icu}.
 
-The experimental design is initialized via init.size/init.grid parameters and then is grown 
+The experimental design is initialized via \code{init.size}/\code{init.grid} parameters and then is grown 
 one input-at-a-time until it is of size \code{model$seq.design.size}. Thus, there are a total of 
 seq.design.size-init.size sequential iterations.
-
-The following model parameters are used:
-\itemize{
-\item init.size: size of starting grid (will be generated via lhs sampling if \code{init.grid} is not given)
-\item pilot.nsims: number of pilot simulations to create the search space where new inputs will be added
-(Default is 5*model$init.size)
-\item cand.len: number of candidate new inputs to be proposed. The next input is chosen greedily as
-the candidate that maximizes the EI criterion. Candidate inputs are selected via \code{tgp::lhs}
-(Default is 500*model$dim)
-\item lhs.rect: specification of the bounding hyper-rectangle where search is conducted
-(Default: construct based on 0.02/0.98 quantiles of the pilot paths in each dimension)
-\item update.freq: how often to re-fit the entire GP surrogate as new inputs are added (Default is 10)
-\item batch.nrep (REQUIRED): number of replicates at each unique input
-\item min.lengthscale: minimum lengthscale of the surrogate (Default: 1% of lhs.rect dimensions)
-\item max.lengthscale: maximum lengthscale of the surrogate (Default: 10x each of lhs.rect dimensions)
-\item ei.func: acquisition function (cSUR by Default)
 }
+\references{
+Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+ Journal of Computational Finance, 22(1), 37-77, 2018
+}
+\author{
+Mike Ludkovski
 }

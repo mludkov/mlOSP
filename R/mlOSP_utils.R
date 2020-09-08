@@ -1,13 +1,16 @@
 ############################################
 #' Simulate h(X_tau) using FIT (can be a dynaTree, smooth.spline, MARS or RandomForest or RVM or hetGP)
 #' @title Forward simulation based on a sequence of emulators
+#' @param model a list containing all model parameters
+#' @param offset (internal for debugging purposes)
 #' @param x     is a matrix of starting values
 #'
 #' if input \code{x} is a list, then use the grids specified by x
-#' @param M     is number of time steps to forward simulate
-#' @param fit   is a list of fitted emulators that determine the stopping classifiers to be used
-#' @param use.qv boolean to indicate whether to plug-in continuation value for all remaining paths at the last time-step
-#' default is set to \code{FALSE}
+#' @param M     number of time steps to forward simulate
+#' @param fit   a list of fitted emulators that determine the stopping classifiers to be used
+#' @param compact flag; if FALSE returns additional information about forward x-values.
+#' @param use.qv boolean to indicate whether to plug-in continuation value for allpaths 
+#' still alive at the last time-step. Default is set to \code{FALSE}
 #' @export
 #' @return a list containing:
 #' \itemize{
@@ -17,7 +20,7 @@
 #'  \item \code{sims} is a list; \code{sims[[i]]} are the forward x-values of paths at t=i (those not stopped yet)
 #' \code{nsims} number of total 1-step simulations performed
 #' }
-#' @details Should be used in conjuction with the \code{osp.} functions that build the emulators. Also called
+#' @details Should be used in conjuction with the \code{osp.xx} functions that build the emulators. Also called
 #' internally from \code{\link{osp.fixed.design}}
 forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE)
 {
@@ -130,13 +133,13 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
 #' Two-dimensional raster+contour+point plot of an mlOSP emulator at a single time step.
 #' @title Visualize a 2D emulator + stopping region
 #' @details Uses the raster plot from \pkg{ggplot2}. For GP-based objects, also shows the unique design
-#' sites via geom_point. See \code{\link{also plt.2d.surf.batch}} for a similar plot 
+#' sites via geom_point. See \code{\link{plt.2d.surf.batch}} for a similar plot 
 #' for \code{osp.seq.batch.design} emulators.
 #'
 #' @param x,y locations to use for the \code{predict()} functions. Default is a 200x200 fine grid.
 #' Passed to \code{expand.grid}
-#' @param fit can be any of the types supported by \code{\link{forward.sim.policy}}
-#' @param show.var -- if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
+#' @param fit a fitted emulator. can be any of the types supported by \code{\link{forward.sim.policy}}
+#' @param show.var if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
 #' This only works for \code{km} and \code{het/homGP/homTP} objects
 #' @param only.contour -- just add the zero-contour, no raster plot (uses \code{contour}, no ggplot)
 #' @param ub clip the surface with an upper bound  to see the zero-contour better
@@ -220,11 +223,15 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6
 }
 
 ################################
-#' Make a 3-panel plot of the 1-d fit from mc.put.adaptree
+#' Make a 3-panel plot of the 1-d fit from \code{mc.put.adaptree}
 #' @param show.ci can be 'none', 'km', 'dt-vmean', 'dt-df'
-#' @param new.fig : whether to create a fresh panel
-#' @param heuristic: calls the corresponding qEI function
-#' @export
+#' @param new.fig whether to create a fresh panel
+#' @param heuristic calls the corresponding qEI function
+#' @param al.weights EI weights
+#' @param new.fig flag whether to overplot or not
+#' @param x.gr locations to use for the predictions
+#' @param obj a list containing the fitted emulator
+#' @param obj2 (experimental) a reference \code{km} emulator to compare against
 plt.1d.fit <- function(obj,x.gr = seq(28,40,len=500),new.fig=F,show.ci='none',heuristic='zc',al.weights=NULL,obj2=NULL,...)
 {
   al.sort <- sort(x.gr, index.ret=T)
@@ -292,15 +299,16 @@ plt.1d.fit <- function(obj,x.gr = seq(28,40,len=500),new.fig=F,show.ci='none',he
 
 
 ######################################
-#' Create a Bouchard-Warin equal prob grid
+#' @title Create a Bouchard-Warin equal prob grid
 #'
-#' Recursively sort along each of the d-coordinates
+#' @details Recursively sort along each of the d-coordinates
 #' At the end do local linear regression at each leaf
 #' This is a recursive algorithm!
 #' first column is reserved for the y-coordinate (timingValue)
-#' It's safest if nrows(grid) is divisible by model$nChildren^dim
+#' It's safest if nrows(grid) is divisible by \code{model$nChildren^model$dim}
 #' @param curDim dimension of the grid
-#' @param grid -- dataset of x-values
+#' @param model a list containing all model parameters. In particular must have \code{model$nChildren}
+#' @param grid dataset of x-values
 #' @param test testPaths to predict along as well
 #' @export
 treeDivide.BW <- function(grid,curDim, model,test)
@@ -364,8 +372,12 @@ treeDivide.BW.1d <- function(grid,curDim, model, test)
 #' Expected Loss for Contour Finding
 #'
 #' @title Compute expected loss using the optimal stopping loss function.
-#' @param objMean: predicted mean response
-#' @param objSd: posterior standard deviation of the response
+#' @param objMean predicted mean response
+#' @param objSd posterior standard deviation of the response
+#' @references 
+#' Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+#'  Journal of Computational Finance, 22(1), 37-77, 2018
+#' @author Mike Ludkovski
 #' @export
 cf.el <- function(objMean,objSd)
 {
@@ -374,12 +386,17 @@ cf.el <- function(objMean,objSd)
 }
 
 #####################
-#' SUR (Stepwise Uncertainty Reduction) acquisition function for Contour Finding
+#' SUR (Stepwise Uncertainty Reduction) acquisition function for Contour Finding from Ludkovski (2018)
 #'
 #' @title Compute EI for Contour Finding using the ZC-SUR formula
-#' @param objMean: predicted mean response
-#' @param objSd: posterior standard deviation of the response
+#' @param objMean predicted mean response
+#' @param objSd posterior standard deviation of the response
+#' @param nugget GP nugget parameter, see under details
 #' @details   compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd^2)}
+#' @references 
+#' Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+#'  Journal of Computational Finance, 22(1), 37-77, 2018
+#' @author Mike Ludkovski
 #' @export
 cf.sur <- function(objMean, objSd, nugget)
 {
@@ -394,13 +411,18 @@ cf.sur <- function(objMean, objSd, nugget)
 }
 
 #####################
-#' cSUR for Contour Finding
+#' cSUR for Contour Finding based on Ludkovski (2018)
 #'
 #' @title Compute reduction in contour-distance
-#' @param objMean: predicted mean response
-#' @param objSd: posterior standard deviation of the response
+#' @param objMean predicted mean response
+#' @param objSd posterior standard deviation of the response
 #' @param nugget the noise variance to compute the ALC factor
 #' @details   compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd^2)}
+#' @references 
+#' Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+#'  Journal of Computational Finance, 22(1), 37-77, 2018
+#' @author Mike Ludkovski
+#' @seealso [osp.seq.design]
 #' @export
 cf.csur <- function(objMean, objSd, nugget)
 {
@@ -417,9 +439,14 @@ cf.csur <- function(objMean, objSd, nugget)
 #' MCU for Contour Finding. DEPRECATED.
 #'
 #' @title Maximum Contour Uncertainty criterion
-#' @param objMean: predicted mean response
-#' @param objSd: posterior standard deviation of the response
+#' @param objMean predicted mean response
+#' @param objSd posterior standard deviation of the response
 #' @details   compute normalized distance to zero-contour |mu|/sd
+#' @references 
+#' Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+#'  Journal of Computational Finance, 22(1), 37-77, 2018
+#' @author Mike Ludkovski
+#' @seealso [osp.seq.design]
 #' @export
 cf.mcu <- function(objMean, objSd)
 {
@@ -430,10 +457,18 @@ cf.mcu <- function(objMean, objSd)
 #' straddle MCU with a specified variance weight
 #'
 #' @title Straddle Maximum Contour Uncertainty criterion
-#' @param objMean: predicted mean response
-#' @param objSd: posterior standard deviation of the response
-#' @param gamma: weight on the variance
+#' @param objMean predicted mean response
+#' @param objSd posterior standard deviation of the response
+#' @param gamma weight on the variance
 #' @details   compute the UCB criterion with constant weight: gamma*s(x) - |f(x)|
+#' @references 
+#' Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+#'  Journal of Computational Finance, 22(1), 37-77, 2018
+#'  
+#'  X.Lyu, M Binois, M. Ludkovski (2020+) Evaluating Gaussian Process Metamodels and Sequential Designs for 
+#'  Noisy Level Set Estimation <https://arxiv.org/abs/1807.06712>
+#' @author Mike Ludkovski
+#' @seealso [osp.seq.design]
 #' @export
 cf.smcu <- function(objMean, objSd, gamma=1.96)
 {
@@ -444,10 +479,20 @@ cf.smcu <- function(objMean, objSd, gamma=1.96)
 #' tMSE for Contour Finding
 #'
 #' @title targeted Mean Squared Error criterion
-#' @param objMean: predicted mean response
-#' @param objSd: posterior standard deviation of the response
-#' @param seps: epsilon in the tMSE formula. By default taken to be zero.
+#' @param objMean predicted mean response
+#' @param objSd posterior standard deviation of the response
+#' @param seps epsilon in the tMSE formula. By default taken to be zero.
 #' @details   compute predictive density at the contour, smoothed by seps
+#' 
+#' @references 
+#' Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+#'  Journal of Computational Finance, 22(1), 37-77, 2018\cr
+#'  
+#'  X.Lyu, M Binois, M. Ludkovski (2020+) Evaluating Gaussian Process Metamodels and Sequential Designs for 
+#'  Noisy Level Set Estimation <https://arxiv.org/abs/1807.06712>
+#'  
+#' @author Mike Ludkovski
+#' @seealso [osp.seq.design]
 #' @export
 cf.tMSE <- function(objMean, objSd, seps = 0)
 {
@@ -580,13 +625,18 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
 }
 
 ############################################
-#' Simulate $\sum_k h(X_{tau_k})$ using \code{fit} emulators
+#' Simulate \eqn{\sum_k h(X_{tau_k})} using \code{fit} emulators
 #' @title Forward simulation of a swing payoff based on a sequence of emulators
 #' @param x   a matrix of starting values (N x \code{model$dim}).
 #' If input \code{x} is a list, then use the grids specified by x
-#' @param M     is number of time steps to forward simulate
-#' @param fit   is a list of fitted emulators that determine the stopping classifiers to be used
-#' @param n.swing: number of swing rights
+#' @param M     number of time steps to forward simulate
+#' @param fit   a list of fitted emulators that determine the stopping classifiers to be used
+#' @param offset deprecated
+#' @param model List containing all model parameters. In particular uses \code{model$dt,model$r} 
+#' for discounting and \code{model$swing.payoff} to compute payoffs
+#' @param use.qv experimental, do not use
+#' @param verbose for debugging purposes
+#' @param n.swing number of swing rights (integer, at least 1)
 #' @export
 #' @return a list containing:
 #' \itemize{
@@ -594,7 +644,7 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
 #'  \item \code{tau} matrix of the times when stopped. Columns represent the rights exercised
 #'  \item  \code{nsims} number of total 1-step simulations performed
 #' }
-#' @details Should be used in conjuction with the \code{osp.swing.fixed} function that builds the emulators. 
+#' @details Should be used in conjuction with the \link{\code{swing.fixed.design}} function that builds the emulators. 
 swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=FALSE)
 {
   nsim <- 0

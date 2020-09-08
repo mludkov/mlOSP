@@ -12,7 +12,9 @@ swing.fixed.design(
 )
 }
 \arguments{
-\item{input.domain:}{the domain of the emulator. Several options are available. Default in \code{NULL}
+\item{model}{a list defining all the model parameters}
+
+\item{input.domain}{the domain of the emulator. Several options are available. Default in \code{NULL}
 All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 \itemize{
 \item NULL will use an empirical probabilistic design based on the pilot paths (default);
@@ -22,7 +24,7 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 \item a vector specifies the precise design, used as-is (\emph{overrides design size})
 }}
 
-\item{method:}{regression method to use (defaults to \code{km})
+\item{method}{regression method to use (defaults to \code{km})
 \itemize{
 \item km: [(default] Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km}.
 Requires \code{km.cov} (vector of lengthscales) and \code{km.var} (scalar process variance)  
@@ -38,6 +40,9 @@ Requires to specify kernel family via \code{kernel.family}
 \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
 \item lm: linear model from \pkg{stats}
 }}
+
+\item{inTheMoney.thresh}{which paths are kept, out-of-the-money is dropped.
+Defines threshold in terms of \code{model$payoff.func}}
 }
 \value{
 a list containing:

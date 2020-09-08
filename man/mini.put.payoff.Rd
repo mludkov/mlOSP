@@ -7,9 +7,9 @@
 mini.put.payoff(x, model)
 }
 \arguments{
-\item{x}{is a vector of asset prices}
+\item{x}{Matrix of asset prices  with \code{model$dim} columns and N rows}
 
-\item{x:}{asset prices}
+\item{model}{list containing model params. Uses \code{model$K} as the Put strike.}
 }
 \description{
 Multivariate min Put

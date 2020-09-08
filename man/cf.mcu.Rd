@@ -7,13 +7,23 @@
 cf.mcu(objMean, objSd)
 }
 \arguments{
-\item{objMean:}{predicted mean response}
+\item{objMean}{predicted mean response}
 
-\item{objSd:}{posterior standard deviation of the response}
+\item{objSd}{posterior standard deviation of the response}
 }
 \description{
 MCU for Contour Finding. DEPRECATED.
 }
 \details{
 compute normalized distance to zero-contour |mu|/sd
+}
+\references{
+Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+ Journal of Computational Finance, 22(1), 37-77, 2018
+}
+\seealso{
+[osp.seq.design]
+}
+\author{
+Mike Ludkovski
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/mlOSP_utils.R
 \name{plt.1d.fit}
 \alias{plt.1d.fit}
-\title{Make a 3-panel plot of the 1-d fit from mc.put.adaptree}
+\title{Make a 3-panel plot of the 1-d fit from \code{mc.put.adaptree}}
 \usage{
 plt.1d.fit(
   obj,
@@ -16,12 +16,20 @@ plt.1d.fit(
 )
 }
 \arguments{
-\item{new.fig}{: whether to create a fresh panel}
+\item{obj}{a list containing the fitted emulator}
+
+\item{x.gr}{locations to use for the predictions}
+
+\item{new.fig}{flag whether to overplot or not}
 
 \item{show.ci}{can be 'none', 'km', 'dt-vmean', 'dt-df'}
 
-\item{heuristic:}{calls the corresponding qEI function}
+\item{heuristic}{calls the corresponding qEI function}
+
+\item{al.weights}{EI weights}
+
+\item{obj2}{(experimental) a reference \code{km} emulator to compare against}
 }
 \description{
-Make a 3-panel plot of the 1-d fit from mc.put.adaptree
+Make a 3-panel plot of the 1-d fit from \code{mc.put.adaptree}
 }

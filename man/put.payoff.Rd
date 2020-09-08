@@ -8,9 +8,9 @@
 put.payoff(x, model)
 }
 \arguments{
-\item{x}{is a vector of asset prices}
+\item{x}{is a matrix of asset prices of dimension N * \code{model$dim}}
 
-\item{K}{is the strike}
+\item{model}{list containing model params. Uses \code{model$K} as the Put strike.}
 }
 \description{
 Arithmetic basket Put for d-dim x

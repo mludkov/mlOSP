@@ -5,13 +5,14 @@
 #' 
 #' @title Longstaff-Schwartz RMC algorithm with a variety of regression methods.
 #' 
-#' @param model defines the simulator and reward model, with the two main model hooks being 
+#' @param model defines the simulator and reward model, with the two main model hooks being. 
+#' Initial condition is \code{model$x0}. Can be either a vector of length \code{model$dim} 
+#' or a vector of length \code{model$dim}*N 
 #' option payoff  \code{payoff.func} (plus parameters) and stochastic simulator \code{sim.func} (plus parameters)
 #' @param N is the number of paths
 #' @param subset To have out-of-sample paths, specify \code{subset} (e.g 1:1000) to use for testing.
 #' By default everything is in-sample
-#' @param x0 required part of the model. Can be either a vector of length \code{model$dim} 
-#' or a vector of length \code{model$dim}*N
+#'
 #' @param method a string specifying regression method to use
 #' \itemize{
 #'  \item spline: Smoothing splines \code{smooth.spline} from \pkg{base}. Only works \emph{in 1D}.
@@ -221,7 +222,8 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' RMC based on a batched non-adaptive design with a variety of regression methods
 #'
 #' @title Generic dynamic emulation of OSP with a non-sequential design
-#' @param input.domain: the domain of the emulator. Several options are available. Default in \code{NULL}
+#' @param model a list containing all the model parameters, see Details. 
+#' @param input.domain the domain of the emulator. Several options are available. Default in \code{NULL}
 #' All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 #' \itemize{
 #' \item  NULL will use an empirical probabilistic design based on the pilot paths (default);
@@ -230,7 +232,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
 #' \item a vector specifies the precise design, used as-is (\emph{overrides design size})
 #' }
-#' @param method: regression method to use (defaults to \code{km})
+#' @param method regression method to use (defaults to \code{km})
 #' \itemize{
 #' \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
 #' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
@@ -246,8 +248,10 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #'  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
 #' \item lm: linear model from \pkg{stats}
 #' }
-#' @param inTheMoney.thresh: which paths are kept, out-of-the-money is dropped.
+#' @param inTheMoney.thresh which paths are kept, out-of-the-money is dropped.
 #' Defines threshold in terms of \code{model$payoff.func}
+#' @param stop.freq *experimental, currently disabled* frequency of stopping decisions (default is \code{model$dt}).
+#' Can be used to stop less frequently.
 #' @return a list containing:
 #' \itemize{
 #' \item \code{fit} a list containing all the models generated at each time-step. \code{fit[[1]]} is the emulator
@@ -450,7 +454,8 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' Swing option solver based on a batched non-adaptive design with a variety of regression methods
 #'
 #' @title Generic dynamic emulation of a multiple-stopping problem with a non-sequential design
-#' @param input.domain: the domain of the emulator. Several options are available. Default in \code{NULL}
+#' @param model a list defining all the model parameters
+#' @param input.domain the domain of the emulator. Several options are available. Default in \code{NULL}
 #' All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 #' \itemize{
 #' \item NULL will use an empirical probabilistic design based on the pilot paths (default);
@@ -459,7 +464,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
 #' \item a vector specifies the precise design, used as-is (\emph{overrides design size})
 #' }
-#' @param method: regression method to use (defaults to \code{km})
+#' @param method regression method to use (defaults to \code{km})
 #' \itemize{
 #' \item km: [(default] Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km}.
 #' Requires \code{km.cov} (vector of lengthscales) and \code{km.var} (scalar process variance)  
@@ -475,6 +480,8 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
 #' \item lm: linear model from \pkg{stats}
 #' }
+#' @param inTheMoney.thresh which paths are kept, out-of-the-money is dropped.
+#' Defines threshold in terms of \code{model$payoff.func}
 #' @return a list containing:
 #' \itemize{
 #' \item \code{fit} a list containing all the models generated at each time-step. \code{fit[[1]]} is the emulator
@@ -668,13 +675,16 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #' RMC using TvR along a global set of paths.
 #' All designs are kept in memory
 #' @title Tsitsiklis van Roy RMC algorithm with a variety of regression methods
-#' @param model defines the simulator and reward model, with the two main model hooks being 
-#' \code{payoff.func} (plus parameters) and \code{sim.func} (plus parameters)
-#' @param N is the number of paths
+#' @param model a list defining the simulator and reward model, with the two main model hooks being 
+#' \code{payoff.func} (plus parameters) and \code{sim.func} (plus parameters). 
+#' 
+#' Also \code{x0}
+#' is a required part of the \code{model}. Can be either a vector of length \code{model$dim} 
+#' or a vector of length \code{model$dim}*N
+#' @param N the number of forward paths to train on
 #' @param subset To reserve out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
 #' By default everything is in-sample.
-#' @param x0 -- required part of the \code{model}. Can be either a vector of length \code{model$dim} 
-#' or a vector of length \code{model$dim}*N
+#' 
 #' @param method a string specifying regression method to use
 #' \itemize{
 #'  \item spline: \code{smooth.spline} from \pkg{base} which only works \emph{in 1D}

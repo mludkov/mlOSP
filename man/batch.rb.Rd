@@ -7,15 +7,15 @@
 batch.rb(objSd_at_x_optim, r_cand, last_r, nugget, gamma)
 }
 \arguments{
-\item{objSd_at_x_optim:}{posterior standard deviation of the response at the selected new input}
+\item{objSd_at_x_optim}{posterior standard deviation of the response at the selected new input}
 
-\item{r_cand:}{candidate batch size vector}
+\item{r_cand}{candidate batch size vector}
 
-\item{nugget:}{the noise variance to compute the ALC factor}
+\item{last_r}{the last batch size}
 
-\item{last_r:}{the last batch size}
+\item{nugget}{the noise variance to compute the ALC factor}
 
-\item{gamma:}{threshold compared with sd}
+\item{gamma}{threshold compared with sd}
 }
 \description{
 Ratchet Batching heuristic

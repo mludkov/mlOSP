@@ -7,17 +7,17 @@
 batch.ddsa(fit, r_seq, xtest, xt_dens, r0, method)
 }
 \arguments{
-\item{fit:}{gp/tp fit}
+\item{fit}{gp/tp fit}
 
-\item{r_seq:}{batch size vector for existing inputs}
+\item{r_seq}{batch size vector for existing inputs}
 
-\item{xtest:}{testing points to compare reallocation and adding a new inputs}
+\item{xtest}{testing points to compare reallocation and adding a new inputs}
 
-\item{xt_dens:}{density of xtest}
+\item{xt_dens}{density of xtest}
 
-\item{r0:}{total number of new simulations}
+\item{r0}{total number of new simulations to add}
 
-\item{method:}{"km" or "trainkm" or "hetgp" or "homtp"}
+\item{method}{"km" or "trainkm" or "hetgp" or "homtp"}
 }
 \description{
 DDSA for Adaptive Batching

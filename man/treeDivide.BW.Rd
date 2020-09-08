@@ -7,16 +7,21 @@
 treeDivide.BW(grid, curDim, model, test)
 }
 \arguments{
-\item{grid}{-- dataset of x-values}
+\item{grid}{dataset of x-values}
 
 \item{curDim}{dimension of the grid}
+
+\item{model}{a list containing all model parameters. In particular must have \code{model$nChildren}}
 
 \item{test}{testPaths to predict along as well}
 }
 \description{
+Create a Bouchard-Warin equal prob grid
+}
+\details{
 Recursively sort along each of the d-coordinates
 At the end do local linear regression at each leaf
 This is a recursive algorithm!
 first column is reserved for the y-coordinate (timingValue)
-It's safest if nrows(grid) is divisible by model$nChildren^dim
+It's safest if nrows(grid) is divisible by \code{model$nChildren^model$dim}
 }

@@ -2,20 +2,20 @@
 % Please edit documentation in R/ospPiecewiseBW.R
 \name{osp.probDesign.piecewisebw}
 \alias{osp.probDesign.piecewisebw}
-\title{Longstaff Schwartz Algorithm using Bouchard-Warin method}
+\title{Longstaff Schwartz Algorithm using Bouchard-Warin method
+
+Uses the Bouchard-Warin recursive partitioning to create N-d trees
+for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.}
 \usage{
 osp.probDesign.piecewisebw(N, model, test.paths = NULL, verb = 0)
 }
 \arguments{
-\item{N}{is the number of paths.}
+\item{N}{the number of forward training paths}
 
-\item{model}{a list that must contain the following fields: \code{T, dt, dim, nChildren},
+\item{model}{a list defining all model parameters. Must contain the following fields: \code{T, dt, dim, nChildren},
 \code{sim.func, x0, r, payoff.func}}
 
-\item{verb}{if specified, produces plots of the 1-dim fit every \code{verb} time-steps
-[default is zero]}
-
-\item{test.paths:}{(optional) a list containing out-of-sample paths to obtain a price estimate
+\item{test.paths}{(optional) a list containing out-of-sample paths to obtain a price estimate
       
   @return a list with the following fields:
   \itemize{
@@ -25,8 +25,13 @@ osp.probDesign.piecewisebw(N, model, test.paths = NULL, verb = 0)
 \item \code{val} is a vector of in-sample pathwise rewards
 \item \code{timeElapsed} total running time based on \code{Sys.time}
 }}
+
+\item{verb}{if specified, produces plots of the 1-dim fit every \code{verb} time-steps
+[default is zero]}
 }
 \description{
+Longstaff Schwartz Algorithm using Bouchard-Warin method
+
 Uses the Bouchard-Warin recursive partitioning to create N-d trees
 for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.
 }
@@ -42,4 +47,9 @@ modelSV5 <- list(K=100,x0=c(90, log(0.35)),r=0.0225,div=0,sigma=1,
 putPr <- osp.probDesign.piecewisebw(20000,modelSV5)
 putPr$price
   # get [1] 17.30111
+}
+\references{
+Bruno Bouchard and Xavier Warin. Monte-Carlo valorisation of American options: facts and new
+algorithms to improve existing methods. In R. Carmona, P. Del Moral, P. Hu, and N. Oudjane, editors,
+Numerical Methods in Finance, volume 12 of Springer Proceedings in Mathematics. Springer, 2011.
 }

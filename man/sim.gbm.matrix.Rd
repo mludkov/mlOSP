@@ -7,13 +7,13 @@
 sim.gbm.matrix(x0, model, dt = model$dt)
 }
 \arguments{
-\item{x0}{is the starting values. Should be a matrix of size N x model$dim)}
+\item{x0}{is the starting values. Should be a matrix of size N x \code{model$dim})}
 
 \item{model}{contains all the other parameters.
 In particular, need \code{model$r, model$rho, model$sigma, model$div, model$dim}
 Note that \code{model$sigma} is the \strong{volatility vector}}
 
-\item{dt}{is the step size \link{Defaults to model$dt}}
+\item{dt}{is the step size (Defaults to \code{model$dt})}
 }
 \value{
 a vector of the new states (same dimension as x0)
@@ -23,6 +23,6 @@ Simulate paths of correlated GBM
 }
 \details{
 Simulate correlated multivariate Geometric Brownian motion
-with a given \code{model$rho} and arbitrary \code{model$sigma}'s. Calls rmvnorm
+with a given \code{model$rho} and arbitrary \code{model$sigma}'s. Calls \code{rmvnorm}
 from \pkg{mvtnorm}
 }

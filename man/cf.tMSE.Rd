@@ -7,15 +7,28 @@
 cf.tMSE(objMean, objSd, seps = 0)
 }
 \arguments{
-\item{objMean:}{predicted mean response}
+\item{objMean}{predicted mean response}
 
-\item{objSd:}{posterior standard deviation of the response}
+\item{objSd}{posterior standard deviation of the response}
 
-\item{seps:}{epsilon in the tMSE formula. By default taken to be zero.}
+\item{seps}{epsilon in the tMSE formula. By default taken to be zero.}
 }
 \description{
 tMSE for Contour Finding
 }
 \details{
 compute predictive density at the contour, smoothed by seps
+}
+\references{
+Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+ Journal of Computational Finance, 22(1), 37-77, 2018\cr
+ 
+ X.Lyu, M Binois, M. Ludkovski (2020+) Evaluating Gaussian Process Metamodels and Sequential Designs for 
+ Noisy Level Set Estimation <https://arxiv.org/abs/1807.06712>
+}
+\seealso{
+[osp.seq.design]
+}
+\author{
+Mike Ludkovski
 }

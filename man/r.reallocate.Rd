@@ -7,15 +7,15 @@
 r.reallocate(L, K, xt_dens, r_seq, r0)
 }
 \arguments{
-\item{L:}{lower triangle of cholesky decomposition of covariance matrix}
+\item{L}{lower triangle of cholesky decomposition of covariance matrix}
 
-\item{K:}{covariance matrix}
+\item{K}{covariance matrix}
 
-\item{xt_dens:}{density of xtest}
+\item{xt_dens}{density of xtest}
 
-\item{r_seq:}{batch size vector for existing inputs}
+\item{r_seq}{batch size vector for existing inputs}
 
-\item{r0:}{total number of new simulations}
+\item{r0}{total number of new simulations}
 }
 \description{
 New batch size calculator

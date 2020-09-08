@@ -2,25 +2,16 @@
 #' @title Adaptive Batch design for optimal stopping (simplified version)
 #'
 #' @details Implements the adaptive batching strategy defined in batch.heuristic with model defined in method. 
-#' @param method: \code{km} to select the GP emulator to apply
-#' @export
+#' @param method \code{km} to select the GP emulator to apply
+#' @param model a list containing all model parameters
 #' @return a list containing:
-#' \code{fit} a list of fitted response surfaces
-#' \code{ndesigns}: number of design size k_T
-#' \code{batches}: matrix of replications r_i
+#' \itemize{
+#' \item \code{fit} a list of fitted response surfaces
+#' \item \code{ndesigns}: number of design size k_T
+#' \item \code{batches}: matrix of replications r_i
+#' }
 osp.seq.batch.design.simplified <- function(model, method="km")
 {
-  #################
-  #' @title Adaptive Batch design for optimal stopping (simplified version)
-  #'
-  #' @details Implements the adaptive batching strategy defined in batch.heuristic with model defined in method. 
-  #' @param method: \code{km} to select the GP emulator to apply
-  #' @export
-  #' @return a list containing:
-  #' \code{fit} a list of fitted response surfaces
-  #' \code{ndesigns}: number of design size k_T
-  #' \code{batches}: matrix of replications r_i
-  #' 
   M <- model$T/model$dt
   
   # replication range in absur

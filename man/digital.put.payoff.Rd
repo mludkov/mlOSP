@@ -7,7 +7,9 @@
 digital.put.payoff(x, model)
 }
 \arguments{
-\item{x}{is a vector of asset prices}
+\item{x}{is a matrix of asset prices of dimension N * \code{model$dim}}
+
+\item{model}{list containing model params. Uses \code{model$K} as the Put strike.}
 }
 \description{
 Digital Put

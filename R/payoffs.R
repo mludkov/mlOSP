@@ -2,8 +2,8 @@
 #'  Arithmetic basket Put for d-dim x
 #'  @title American Put payoff
 #'
-#' @param K is the strike
-#' @param x is a vector of asset prices
+#' @param model list containing model params. Uses \code{model$K} as the Put strike.
+#' @param x is a matrix of asset prices of dimension N * \code{model$dim}
 #' @details in more than 1D, the prices are averaged and maxed with zero.
 #' @export
 put.payoff <- function(x,model)
@@ -12,8 +12,8 @@ put.payoff <- function(x,model)
 }
 
 ########################
-#' Call
-#' @title Arithmetic average Call payoff
+#' Basket Call option on average asset price
+#' @title Arithmetic average Call payoff \eqn{(mean(x)-K)_+}
 #' @details arithmetic basket for d-dim x)
 #' @export
 #' @inheritParams put.payoff
@@ -49,7 +49,7 @@ geom.put.payoff <- function(x,model)
 #' Multivariate min Put
 #' @title Min Put payoff
 #'
-#' @param x: asset prices
+#' @param x Matrix of asset prices  with \code{model$dim} columns and N rows
 #' @export
 #' @inheritParams put.payoff
 mini.put.payoff <- function(x,model)
@@ -61,7 +61,7 @@ mini.put.payoff <- function(x,model)
 #' Multivariate max call
 #' @title Max Call payoff
 #'
-#' @param x: asset prices
+#' @param x Matrix of asset prices with \code{model$dim} columns and N rows
 #' @export
 #' @inheritParams put.payoff
 maxi.call.payoff <- function(x, model)
@@ -73,7 +73,7 @@ maxi.call.payoff <- function(x, model)
 ######################
 #' Put payoff for a stoch vol model
 #' @title Basket Put with stochastic volatility
-#' @param x: First coordinate is the asset price, the rest are vol factors
+#' @param x First coordinate is the asset price, the rest are vol factors
 #' @export
 #' @inheritParams put.payoff
 #' @details Uses K-x[,1], ignores other coordinates

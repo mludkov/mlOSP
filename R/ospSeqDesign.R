@@ -14,28 +14,30 @@
 #' \code{ei.func} which can be \code{csur} (Default), \code{sur}, \code{smcu}, \code{amcu},
 #' \code{tmse} and \code{icu}.
 #' 
-#' The experimental design is initialized via init.size/init.grid parameters and then is grown 
+#' The experimental design is initialized via \code{init.size}/\code{init.grid} parameters and then is grown 
 #' one input-at-a-time until it is of size \code{model$seq.design.size}. Thus, there are a total of 
 #' seq.design.size-init.size sequential iterations.
 #' 
+#' @param model a list containing all the model parameters. 
+#' 
 #' The following model parameters are used:
 #' \itemize{
-#' \item init.size: size of starting grid (will be generated via lhs sampling if \code{init.grid} is not given)
-#' \item pilot.nsims: number of pilot simulations to create the search space where new inputs will be added
-#' (Default is 5*model$init.size)
-#' \item cand.len: number of candidate new inputs to be proposed. The next input is chosen greedily as
+#' \item \code{init.size}: size of starting grid (will be generated via lhs sampling if \code{init.grid} is not given)
+#' \item \code{pilot.nsims}: number of pilot simulations to create the search space where new inputs will be added
+#' (Default is 5*\code{model$init.size})
+#' \item \code{cand.len}: number of candidate new inputs to be proposed. The next input is chosen greedily as
 #' the candidate that maximizes the EI criterion. Candidate inputs are selected via \code{tgp::lhs}
-#' (Default is 500*model$dim)
-#' \item lhs.rect: specification of the bounding hyper-rectangle where search is conducted
+#' (Default is 500*\code{model$dim})
+#' \item \code{lhs.rect}: specification of the bounding hyper-rectangle where search is conducted
 #' (Default: construct based on 0.02/0.98 quantiles of the pilot paths in each dimension)
-#' \item update.freq: how often to re-fit the entire GP surrogate as new inputs are added (Default is 10)
-#' \item batch.nrep (REQUIRED): number of replicates at each unique input
-#' \item min.lengthscale: minimum lengthscale of the surrogate (Default: 1% of lhs.rect dimensions)
-#' \item max.lengthscale: maximum lengthscale of the surrogate (Default: 10x each of lhs.rect dimensions)
-#' \item ei.func: acquisition function (cSUR by Default)
+#' \item \code{update.freq}: how often to re-fit the entire GP surrogate as new inputs are added (Default is 10)
+#' \item \code{batch.nrep} (REQUIRED): number of replicates at each unique input
+#' \item \code{min.lengthscale}: vector with minimum lengthscales of the surrogate (Default: 1% of lhs.rect dimensions)
+#' \item \code{max.lengthscale}: vector with maximum lengthscale of the surrogate (Default: 10x each of lhs.rect dimensions)
+#' \item \code{ei.func}: acquisition function (cSUR by Default)
 #' }
 #' 
-#' @param method: one of \code{km}, \code{trainkm}, \code{homtp} or \code{hetgp} to select the GP emulator to apply
+#' @param method one of \code{km}, \code{trainkm}, \code{homtp} or \code{hetgp} to select the GP emulator to apply
 #' @export
 #' @return a list containing:
 #' \itemize{
@@ -46,6 +48,11 @@
 #' \item \code{empLoss} --matrix of empirical losses (rows for time-steps, columns for iterations)
 #' \item \code{theta.fit} -- 3d array of estimated lengthscales (sorted by time-steps,iterations,dimensions-of-x)
 #' }
+#' 
+#' @references 
+#' Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+#'  Journal of Computational Finance, 22(1), 37-77, 2018
+#' @author Mike Ludkovski
 osp.seq.design <- function(model,method="km")
 {
   M <- model$T/model$dt
@@ -136,12 +143,12 @@ osp.seq.design <- function(model,method="km")
 
     # create the km object
     if (method == "km")
-      fits[[i]] <- km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
+      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
                         noise.var=all.X[1:k,model$dim+2]/model$batch.nrep,
                         control=list(trace=F), lower=model$min.lengthscale, covtype=model$kernel.family, 
                         coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var)
     if (method == "trainkm") {
-      fits[[i]] <- km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
+      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
                       noise.var=all.X[1:k,model$dim+2]/model$batch.nrep, covtype=model$kernel.family,
                       control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale)
       theta.fit[i,k-model$init.size+1,] <- coef(fits[[i]])$range
@@ -257,12 +264,12 @@ osp.seq.design <- function(model,method="km")
 
       if (k %in% update.kernel.iters) {
         if (method == "km")
-           fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:k,1:model$dim]), response=data.frame(y=all.X[1:k,model$dim+1]),
+           fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=all.X[1:k,1:model$dim]), response=data.frame(y=all.X[1:k,model$dim+1]),
                           noise.var=all.X[1:k,model$dim+2]/model$batch.nrep, coef.trend=0, coef.cov=model$km.cov,
                           coef.var=model$km.var, control=list(trace=F), 
                           lower=model$min.lengthscale,upper=model$max.lengthscale)
         if (method == "trainkm") {
-          fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:k,1:model$dim]), response=data.frame(y=all.X[1:k,model$dim+1]),
+          fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=all.X[1:k,1:model$dim]), response=data.frame(y=all.X[1:k,model$dim+1]),
                           noise.var=all.X[1:k,model$dim+2]/model$batch.nrep, control=list(trace=F), 
                           lower=model$min.lengthscale, upper=model$max.lengthscale)
           theta.fit[i,k-model$init.size+1,] <- coef(fits[[i]])$range
@@ -273,23 +280,23 @@ osp.seq.design <- function(model,method="km")
            theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
         }
         if (method == "homtp") {
-          fits[[i]] <- mleHomTP(X=all.X[1:k,1:model$dim], Z=all.X[1:k,model$dim+1],noiseControl=list(nu_bounds=c(2.01,10),sigma2_bounds=c(5e-2,4)),
+          fits[[i]] <- hetGP::mleHomTP(X=all.X[1:k,1:model$dim], Z=all.X[1:k,model$dim+1],noiseControl=list(nu_bounds=c(2.01,10),sigma2_bounds=c(5e-2,4)),
                                  lower=model$min.lengthscale,upper=model$max.lengthscale, covtype=model$kernel.family)
           theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
         }
       }
       else {
         if (method == "km" | method == "trainkm")
-           fits[[i]] <- update(fits[[i]],newX=add.grid[1,,drop=F],newy=add.mean,
+           fits[[i]] <- hetGP::update(fits[[i]],newX=add.grid[1,,drop=F],newy=add.mean,
                                newnoise=add.var/model$batch.nrep,  cov.re=F)
         if (method == "hetgp")
-           fits[[i]] <- update(object=fits[[i]], Xnew=add.grid, Znew=fsim$payoff-immPayoff, maxit = 0)
+           fits[[i]] <- hetGP::update(object=fits[[i]], Xnew=add.grid, Znew=fsim$payoff-immPayoff, maxit = 0)
         if (method == "homtp")
-           fits[[i]] <- update(object=fits[[i]], Xnew=add.grid[1,,drop=F], Znew=add.mean, maxit = 0)
+           fits[[i]] <- hetGP::update(object=fits[[i]], Xnew=add.grid[1,,drop=F], Znew=add.mean, maxit = 0)
       }
 
       # resample the candidate set
-      ei.cands <- lhs( model$cand.len, lhs.rect )
+      ei.cands <- tgp::lhs( model$cand.len, lhs.rect )
       ei.cands <- ei.cands[ model$payoff.func( ei.cands,model) > 0,,drop=F]
       if (k >= model$seq.design.size)
          add.more.sites <- FALSE

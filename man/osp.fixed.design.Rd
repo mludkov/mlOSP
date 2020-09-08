@@ -13,7 +13,9 @@ osp.fixed.design(
 )
 }
 \arguments{
-\item{input.domain:}{the domain of the emulator. Several options are available. Default in \code{NULL}
+\item{model}{a list containing all the model parameters, see Details.}
+
+\item{input.domain}{the domain of the emulator. Several options are available. Default in \code{NULL}
 All the empirical domains rely on pilot paths generated using \code{pilot.nsims}>0 model parameter.
 \itemize{
 \item  NULL will use an empirical probabilistic design based on the pilot paths (default);
@@ -23,7 +25,7 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 \item a vector specifies the precise design, used as-is (\emph{overrides design size})
 }}
 
-\item{method:}{regression method to use (defaults to \code{km})
+\item{method}{regression method to use (defaults to \code{km})
 \itemize{
 \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
 \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
@@ -40,8 +42,11 @@ knots via \code{model$nk}
 \item lm: linear model from \pkg{stats}
 }}
 
-\item{inTheMoney.thresh:}{which paths are kept, out-of-the-money is dropped.
+\item{inTheMoney.thresh}{which paths are kept, out-of-the-money is dropped.
 Defines threshold in terms of \code{model$payoff.func}}
+
+\item{stop.freq}{*experimental, currently disabled* frequency of stopping decisions (default is \code{model$dt}).
+Can be used to stop less frequently.}
 }
 \value{
 a list containing:

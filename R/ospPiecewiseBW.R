@@ -1,17 +1,17 @@
 ##########################################
-#' Longstaff Schwartz Algorithm using Bouchard-Warin method
+#' @title Longstaff Schwartz Algorithm using Bouchard-Warin method
 #'
 #' Uses the Bouchard-Warin recursive partitioning to create N-d trees
 #' for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.
 #' @details Calls \link{treeDivide.BW} to create the equi-probably partitions.
 #' Must have N/model$nChildren^model$dim as an integer.
 #' 
-#' @param N     is the number of paths. 
-#' @param model a list that must contain the following fields: \code{T, dt, dim, nChildren},
+#' @param N     the number of forward training paths
+#' @param model a list defining all model parameters. Must contain the following fields: \code{T, dt, dim, nChildren},
 #'        \code{sim.func, x0, r, payoff.func}
 #' @param verb if specified, produces plots of the 1-dim fit every \code{verb} time-steps
 #' [default is zero]
-#' @param test.paths: (optional) a list containing out-of-sample paths to obtain a price estimate
+#' @param test.paths (optional) a list containing out-of-sample paths to obtain a price estimate
 #'       
 #'   @return a list with the following fields:
 #'   \itemize{
@@ -21,6 +21,12 @@
 #' \item \code{val} is a vector of in-sample pathwise rewards
 #' \item \code{timeElapsed} total running time based on \code{Sys.time}
 #' }
+#' 
+#' @references 
+#'  Bruno Bouchard and Xavier Warin. Monte-Carlo valorisation of American options: facts and new
+#' algorithms to improve existing methods. In R. Carmona, P. Del Moral, P. Hu, and N. Oudjane, editors,
+#' Numerical Methods in Finance, volume 12 of Springer Proceedings in Mathematics. Springer, 2011.
+#' 
 #' @examples
 #' set.seed(1)
 #' modelSV5 <- list(K=100,x0=c(90, log(0.35)),r=0.0225,div=0,sigma=1,

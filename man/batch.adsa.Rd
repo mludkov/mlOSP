@@ -7,21 +7,21 @@
 batch.adsa(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method)
 }
 \arguments{
-\item{fit:}{gp/tp fit}
+\item{fit}{GP/TP fit}
 
-\item{r_seq:}{batch size vector for existing inputs}
+\item{r_seq}{batch size vector for existing inputs}
 
-\item{xtest:}{testing points to compare reallocation and adding a new inputs}
+\item{xtest}{testing points to compare reallocation and adding a new inputs}
 
-\item{xt_dens:}{density of xtest}
+\item{xt_dens}{density of xtest}
 
-\item{x_new:}{new input location selected by one EI criteria}
+\item{x_new}{new input location selected by the EI criteria}
 
-\item{r0:}{total number of new simulations}
+\item{r0}{total number of new simulations}
 
-\item{nugget:}{the noise variance to compute the ALC factor}
+\item{nugget}{the noise variance to compute the ALC factor}
 
-\item{method:}{\code{km} or \code{trainkm} or \code{hetgp} or \code{homtp}}
+\item{method}{\code{km} or \code{trainkm} or \code{hetgp} or \code{homtp}}
 }
 \value{
 a list containing

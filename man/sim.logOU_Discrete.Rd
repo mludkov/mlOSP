@@ -10,8 +10,8 @@ sim.logOU_Discrete(x0, model, dt = model$dt)
 \arguments{
 \item{x0}{is the starting values (matrix of size N x model$dim)}
 
-\item{model}{contains all the other parameters, including volatility \code{model$sigma}
-interest rate \code{model$r} and continuous dividend yield \code{model$div}}
+\item{model}{a list containing all the other parameters, including volatility \code{model$sigma},
+interest rate \code{model$r} and continuous dividend yield \code{model$div}.}
 
 \item{dt}{is the step size in time. Defaults to \code{model$dt}}
 }

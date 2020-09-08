@@ -9,7 +9,9 @@ osp.prob.design(N, model, subset = 1:N, method = "lm")
 \arguments{
 \item{N}{is the number of paths}
 
-\item{model}{defines the simulator and reward model, with the two main model hooks being 
+\item{model}{defines the simulator and reward model, with the two main model hooks being. 
+Initial condition is \code{model$x0}. Can be either a vector of length \code{model$dim} 
+or a vector of length \code{model$dim}*N 
 option payoff  \code{payoff.func} (plus parameters) and stochastic simulator \code{sim.func} (plus parameters)}
 
 \item{subset}{To have out-of-sample paths, specify \code{subset} (e.g 1:1000) to use for testing.
@@ -35,9 +37,6 @@ By default everything is in-sample}
  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions 
  (+ constant) which is a function pointer.
  }}
-
-\item{x0}{required part of the model. Can be either a vector of length \code{model$dim} 
-or a vector of length \code{model$dim}*N}
 }
 \value{
 a list containing

@@ -7,10 +7,14 @@
 osp.tvr(N, model, subset = 1:N, method = "lm")
 }
 \arguments{
-\item{N}{is the number of paths}
+\item{N}{the number of forward paths to train on}
 
-\item{model}{defines the simulator and reward model, with the two main model hooks being 
-\code{payoff.func} (plus parameters) and \code{sim.func} (plus parameters)}
+\item{model}{a list defining the simulator and reward model, with the two main model hooks being 
+\code{payoff.func} (plus parameters) and \code{sim.func} (plus parameters). 
+
+Also \code{x0}
+is a required part of the \code{model}. Can be either a vector of length \code{model$dim} 
+or a vector of length \code{model$dim}*N}
 
 \item{subset}{To reserve out-of-sample paths, specify \code{subset} (eg 1:1000) to use for testing.
 By default everything is in-sample.}
@@ -30,9 +34,6 @@ By default everything is in-sample.}
  to describe the number of nodes across hidden layers
  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions (+ constant)
  }}
-
-\item{x0}{-- required part of the \code{model}. Can be either a vector of length \code{model$dim} 
-or a vector of length \code{model$dim}*N}
 }
 \value{
 a list containing

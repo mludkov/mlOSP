@@ -7,15 +7,25 @@
 cf.csur(objMean, objSd, nugget)
 }
 \arguments{
+\item{objMean}{predicted mean response}
+
+\item{objSd}{posterior standard deviation of the response}
+
 \item{nugget}{the noise variance to compute the ALC factor}
-
-\item{objMean:}{predicted mean response}
-
-\item{objSd:}{posterior standard deviation of the response}
 }
 \description{
-cSUR for Contour Finding
+cSUR for Contour Finding based on Ludkovski (2018)
 }
 \details{
 compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd^2)}
+}
+\references{
+Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+ Journal of Computational Finance, 22(1), 37-77, 2018
+}
+\seealso{
+[osp.seq.design]
+}
+\author{
+Mike Ludkovski
 }

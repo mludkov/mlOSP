@@ -7,21 +7,23 @@
 osp.seq.batch.design(model, method = "km", t0 = 0.01, is.gbm = FALSE)
 }
 \arguments{
-\item{\code{method}:}{either \code{km} or \code{hetgp} to select the GP emulator to apply}
+\item{model}{a list containing all the model parameters.}
 
-\item{\code{t0}:}{parameter \code{t0} for \code{ABSUR} [Default value is 0.01]}
+\item{method}{either \code{km} or \code{hetgp} to select the GP emulator to apply}
 
-\item{\code{is.gbm}:}{flag to indicate whether the underlying simulator is independent log-normals (used 
+\item{t0}{parameter \code{t0} for \code{ABSUR} heuristic [Default value is 0.01]}
+
+\item{is.gbm}{flag to indicate whether the underlying simulator is independent log-normals (used 
 as part of density computation for integrated EI criteria) [Default FALSE]}
 }
 \value{
 a list containing:
 \itemize{
 \item \code{fit} a list of fitted response surfaces
-\item \code{timeElapsed} vector of time cost for each round
-\item \code{nsims} total number of 1-step sim.func calls
+\item \code{timeElapsed} vector of time costs for each round
+\item \code{nsims} total number of 1-step \code{model$sim.func} calls
 \item \code{empLoss} vector of empirical losses
-\item \code{ndesigns}: number of design size k_T
+\item \code{ndesigns}: number of unique designs k_T
 \item \code{batches}: matrix of replications r_i, indexed by time-steps and by sequential rounds
 }
 }
@@ -67,5 +69,8 @@ oos.obj.adsa <- osp.seq.batch.design(model2d,method="trainkm")
 }
 \references{
 M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 
-in Noisy Level Set Estimation, http://arxiv.org/abs/2003.08579
+in Noisy Level Set Estimation, <http://arxiv.org/abs/2003.08579>
+}
+\seealso{
+[mlOSP::osp.seq.design]
 }

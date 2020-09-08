@@ -7,13 +7,22 @@
 cf.sur(objMean, objSd, nugget)
 }
 \arguments{
-\item{objMean:}{predicted mean response}
+\item{objMean}{predicted mean response}
 
-\item{objSd:}{posterior standard deviation of the response}
+\item{objSd}{posterior standard deviation of the response}
+
+\item{nugget}{GP nugget parameter, see under details}
 }
 \description{
-SUR (Stepwise Uncertainty Reduction) acquisition function for Contour Finding
+SUR (Stepwise Uncertainty Reduction) acquisition function for Contour Finding from Ludkovski (2018)
 }
 \details{
 compute the change in ZC = sd*(1-sqrt{(nugget)})/sqrt{(nugget + sd^2)}
+}
+\references{
+Mike Ludkovski, Kriging Metamodels and Experimental Design for Bermudan Option Pricing
+ Journal of Computational Finance, 22(1), 37-77, 2018
+}
+\author{
+Mike Ludkovski
 }
