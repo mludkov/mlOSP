@@ -141,13 +141,12 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
 #' @param fit a fitted emulator. can be any of the types supported by \code{\link{forward.sim.policy}}
 #' @param show.var if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
 #' This only works for \code{km} and \code{het/homGP/homTP} objects
-#' @param only.contour -- just add the zero-contour, no raster plot (uses \code{contour}, no ggplot)
-#' @param ub clip the surface with an upper bound  to see the zero-contour better
+#' @param only.contour -- just the zero-contour, no raster plot
 #' @param contour.col (default is "red") -- color of the zero contour
 #' @param bases (only used for lm objects)
 #' @return a ggplot handle for the created plot.
 #' @export
-plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6,
+plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),
                          show.var=FALSE, only.contour=FALSE, contour.col="red",bases=NULL)
 {
   gr <- expand.grid(x=x,y=y)
@@ -184,8 +183,8 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),ub=1e6
     obj <- predict(fit,exdat=cbind(gr$x,gr$y))
   
   if (only.contour==TRUE) {
-    imx <- as.image(x=cbind(gr$x,gr$y),obj,nr=100,nc=100)
-    contour(imx$x,imx$y,imx$z,levels=0,add=T,drawlab=F,lwd=2,col=contour.col)
+    #imx <- as.image(x=cbind(gr$x,gr$y),obj,nr=100,nc=100)
+    #contour(imx$x,imx$y,imx$z,levels=0,add=T,drawlab=F,lwd=2,col=contour.col)
     g1 <- ggplot( data.frame(x=gr$x, y=gr$y,z=obj)) + 
       geom_contour(breaks=0,color=contour.col,aes(x,y,z=z),size=1.4) +
       scale_x_continuous(expand=c(0,0),limits=range(x)) + 
