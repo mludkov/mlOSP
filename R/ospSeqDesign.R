@@ -66,6 +66,8 @@ osp.seq.design <- function(model,method="km")
     model$pilot.nsims <- 5*model$init.size
   if (is.null(model$cand.len))
     model$cand.len <- 500*model$dim
+  if(is.null(model$ucb.gamma))
+    model$ucb.gamma <- 1.96
 
   fits <- list()   # list of emulator objects at each step
   pilot.paths <- list()
@@ -287,12 +289,10 @@ osp.seq.design <- function(model,method="km")
       }
       else {
         if (method == "km" | method == "trainkm")
-           fits[[i]] <- hetGP::update(fits[[i]],newX=add.grid[1,,drop=F],newy=add.mean,
+           fits[[i]] <- update(fits[[i]],newX=add.grid[1,,drop=F],newy=add.mean,
                                newnoise=add.var/model$batch.nrep,  cov.re=F)
-        if (method == "hetgp")
-           fits[[i]] <- hetGP::update(object=fits[[i]], Xnew=add.grid, Znew=fsim$payoff-immPayoff, maxit = 0)
-        if (method == "homtp")
-           fits[[i]] <- hetGP::update(object=fits[[i]], Xnew=add.grid[1,,drop=F], Znew=add.mean, maxit = 0)
+        if (method == "hetgp" | method == "homtp")
+           fits[[i]] <- update(object=fits[[i]], Xnew=add.grid, Znew=fsim$payoff-immPayoff, maxit = 0)
       }
 
       # resample the candidate set

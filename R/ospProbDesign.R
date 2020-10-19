@@ -30,6 +30,9 @@
 #'  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
 #'  \item nnet: neural network using \pkg{nnet}. This is a single-layer neural net. Specify a scalar \code{nn.nodes} 
 #'  to describe the number of nodes at the hidden layer
+#'  \item dynatree: dynamic trees using \pkg{dynaTree}. Requires \code{dt.type} ("constant" 
+#'  or "linear" fits at the leafs), \code{dt.Npart} (number of trees), \code{dt.minp} (minimum size
+#'  of each partition) and \code{dt.ab} (the tree prior parameter) model parameters.
 #'  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions 
 #'  (+ constant) which is a function pointer.
 #'  }
@@ -166,7 +169,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
           rvmk <- "rbfdot"
       else
           rvmk <- model$rvm.kernel
-      all.models[[i]] <- kernlab::rvm(x=grids[[i]][c.train], y=yVal,kernel=rvmk)
+      all.models[[i]] <- kernlab::rvm(x=grids[[i]][c.train,,drop=F], y=yVal,kernel=rvmk)
       timingValue <- predict(all.models[[i]], new=grids[[i]])
     }
     if (method == "npreg") {
@@ -183,9 +186,16 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
         else
           kerorder <- model$np.kerorder
 
-        all.models[[i]] <- np::npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+        all.models[[i]] <- np::npreg(txdat = grids[[i]][c.train,,drop=F], tydat = yVal,
                            regtype=regtype, ckertype=kertype,ckerorder=kerorder)
         timingValue <- predict(all.models[[i]],new=grids[[i]])
+    }
+    if (method=="dynatree") {
+      all.models[[i]] <- dynaTree::dynaTree(grids[[i]][c.train,,drop=F], yVal, 
+                                            model=model$dt.type, N=model$dt.Npart,minp=model$dt.minp,
+                                            ab=model$dt.ab ,verb=0)
+                #icept="augmented",
+      timingValue <- predict(all.models[[i]], grids[[i]],quants=F)$mean  
     }
 
     # paths on which stop right now
