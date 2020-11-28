@@ -152,7 +152,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
       timingValue <- deepnet::nn.predict(all.models[[i]],grids[[i]])
     }
     if (method == "nnet") {  # Neural Network via the nnet library
-      all.models[[i]] <- mnet::nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
+      all.models[[i]] <- nnet::nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
                               size=model$nn.nodes, linout=TRUE, maxit=1000,trace=FALSE)
       timingValue <- predict(all.models[[i]],grids[[i]], type="raw")
     }

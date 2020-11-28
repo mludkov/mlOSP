@@ -156,11 +156,11 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),
     obj <- apply(obj,1,median)
   }
   if (is(fit,"earth") )
-    rule <- predict(fit,cbind(gr$x,gr$y)) # for use with  MARS
+    obj <- predict(fit,cbind(gr$x,gr$y)) # for use with  MARS
   if (is(fit,"deepnet") )
-    rule <- nn.predict(fit,cbind(gr$x,gr$y)) # for use with deepnet
+    obj <- nn.predict(fit,cbind(gr$x,gr$y)) # for use with deepnet
   if (is(fit,"nnet") )
-    rule <- predict(fit,cbind(gr$x,gr$y), type="raw") # for use with nnet
+    obj <- predict(fit,cbind(gr$x,gr$y), type="raw") # for use with nnet
   
   if (is(fit,"dynaTree")  )
     obj <- predict(fit,cbind(gr$x,gr$y),quants=F)$mean

@@ -8,8 +8,9 @@
 #' Calls \code{lhs}  from library \pkg{tgp}. Possible batch heuristics are:
 #' \itemize{
 #'   \item \code{fb}: [Default] fixed batch amounts (essentially same as \link{osp.seq.design})
-#'   \item \code{mlb}: Multi-level batching
-#'   \item \code{rb}: Ratchet batching which relies on \code{model$r.cand}
+#'   \item \code{mlb}: Multi-level batching; relies on \code{model$r.cand}
+#'   \item \code{rb}: Ratchet batching; relies on \code{model$r.cand}
+#'   \item \code{absur}: Adaptive batching with Stepwise Uncertainty Reduction; relies on \code{model$t0}
 #'   \item \code{adsa}: Adaptive Design with Sequential Allocation
 #'   \item \code{ddsa}: Deterministic ADSA that alternates between adding a new input site and allocating
 #'   to existing sites
