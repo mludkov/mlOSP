@@ -30,6 +30,10 @@
 #'  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
 #'  \item nnet: neural network using \pkg{nnet}. This is a single-layer neural net. Specify a scalar \code{nn.nodes} 
 #'  to describe the number of nodes at the hidden layer
+#'  \item lagp: local approximate Gaussian Process regression using \pkg{lagp} package. Can 
+#'  optionally provide \code{lagp.type} (default is "alcray" which is fastest, other choices are "alc" 
+#'  and "mspe") that determines how the local design is constructed, and \code{lagp.end} which determines
+#'  how many inputs are in the above local design. 
 #'  \item dynatree: dynamic trees using \pkg{dynaTree}. Requires \code{dt.type} ("constant" 
 #'  or "linear" fits at the leafs), \code{dt.Npart} (number of trees), \code{dt.minp} (minimum size
 #'  of each partition) and \code{dt.ab} (the tree prior parameter) model parameters.
@@ -114,20 +118,30 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 
     ### CASES DEPENDING ON METHOD
     if (method == "spline" & ncol(grids[[i]]) == 1) { # only works in 1D
+      if (is.null(model$nk) )
+        stop("Missing parameters to pass to stats::smooth.spline function. Need model$nk")
+      
       all.models[[i]] <- stats::smooth.spline( x=grids[[i]][c.train],y=yVal,
                                         nknots = model$nk)
       timingValue <- predict(all.models[[i]],grids[[i]])$y
     }
 
     if (method == "randomforest") {
+      if (is.null(model$rf.ntree) | is.null(model$rf.maxnode))
+        stop("Missing parameters to pass to randomForest function. Need rf.maxnode and rf.ntree")
+      
       all.models[[i]] <-  randomForest::randomForest(x=grids[[i]][c.train,,drop=F],y=yVal,
                                        ntree=model$rf.ntree,replace=F,maxnode=model$rf.maxnode)
-      timingValue <- predict(all.models[[i]],grids[[i]],predict.all=T)$individual
-      stopProb <- apply( (timingValue < 0), 1, sum)/model$rf.ntree  # not used right now
-      timingValue <- apply(timingValue,1,mean)   # median or mean prediction could be used
+      #timingValue <- predict(all.models[[i]],grids[[i]],predict.all=T)$individual
+      #stopProb <- apply( (timingValue < 0), 1, sum)/model$rf.ntree  # not used right now
+      #timingValue <- apply(timingValue,1,mean)   # median or mean prediction could be used
+      timingValue <- predict(all.models[[i]],grids[[i]])
     }
 
     if (method == "loess" & ncol(grids[[i]]) <= 2) { # LOESS only works in 1D or 2D
+        if (is.null(model$lo.span) )
+          stop("Missing parameters to pass to stats::loess function. Need model$lo.span")
+      
         if (ncol(grids[[i]]) == 1) {
           all.models[[i]] <- stats::loess(y ~ x, data.frame(x=grids[[i]][c.train], y=yVal),
                                  span=model$lo.span, control = loess.control(surface = "direct"))
@@ -142,11 +156,15 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
         stopProb <- 1-pnorm( (stopProb$fit)/stopProb$se)
     }
     if (method == "earth") {  # Multivariate Adaptive Regression Splines
+      if (is.null(model$earth.deg) | is.null(model$earth.thresh) | is.null(model$earth.nk))
+         stop("Missing parameters to pass to earth::earth function. Need earth.deg, earth.nk, earth.thresh")
        all.models[[i]] <- earth::earth(x=grids[[i]][c.train,,drop=F],y=yVal,
                                 degree=model$earth.deg,nk=model$earth.nk,thresh=model$earth.thresh)
        timingValue <- predict(all.models[[i]],grids[[i]])
     }
     if (method == "deepnet") {  # Neural Network via the deepnet library
+      if (is.null(model$nn.layers) )
+        stop("Missing parameters to pass to deepnet::nn.train function. Need nn.layers")
       all.models[[i]] <- deepnet::nn.train(x=grids[[i]][c.train,,drop=F],y=yVal,
                                hidden=model$nn.layers)
       timingValue <- deepnet::nn.predict(all.models[[i]],grids[[i]])
@@ -156,7 +174,29 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
                               size=model$nn.nodes, linout=TRUE, maxit=1000,trace=FALSE)
       timingValue <- predict(all.models[[i]],grids[[i]], type="raw")
     }
-
+    if (method == "lagp") { # approximate GP
+      if (is.null(model$lagp.type))
+        lagp.type <- "alcray"
+      else
+        lagp.type <- model$lagp.type
+      if (is.null(model$lagp.end))
+        lagp.end <- 50
+      else
+        lagp.end <- model$lagp.end
+      if (i==(M-1))
+        startd <- NULL
+      else
+        # initial guess for lengthscale based on previous step, make sure it's within allowed range
+        startd <- pmax(pmin(darg(NULL,grids[[i]][c.train, , drop = F])$max*0.9, mean(all.models[[i+1]]$mle$d)),
+                       darg(NULL,grids[[i]][c.train, , drop = F])$min*1.05)
+      # do not estimate the nugget
+      all.models[[i]] <- aGP(X=grids[[i]][c.train,,drop=F], Z=yVal, XX=grids[[i]], g=NULL,
+                             end=lagp.end, method=lagp.type,d=startd,
+                             omp.threads=4,verb=0,Xi.ret=FALSE)
+      timingValue <- all.models[[i]]$mean 
+      all.models[[i]] <- list(x=grids[[i]][c.train,,drop=F], y=yVal,
+                              mle=all.models[[i]]$mle,time=all.models[[i]]$time)
+    }
     if (method =="lm") {  # Linear regression with specified basis functions
       matb <- model$bases(grids[[i]][c.train,,drop=F])
       all.models[[i]] <- lm(yVal ~ matb)
@@ -191,6 +231,9 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
         timingValue <- predict(all.models[[i]],new=grids[[i]])
     }
     if (method=="dynatree") {
+      if (is.null(model$dt.Npart) | is.null(model$dt.minp) | is.null(model$dt.ab) | is.null(model$dt.type))
+        stop("Missing parameters to pass to dynaTree::dynaTree function. Need dt.type, dt.minp, dt.Npart, dt.ab")
+      
       all.models[[i]] <- dynaTree::dynaTree(grids[[i]][c.train,,drop=F], yVal, 
                                             model=model$dt.type, N=model$dt.Npart,minp=model$dt.minp,
                                             ab=model$dt.ab ,verb=0)
@@ -246,7 +289,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \itemize{
 #' \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
 #' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
-#' \item lagp Local approximate GP from the \pkg{laGP}. Requires
+#' \item mlegp Local approximate GP from the \pkg{laGP}. Requires
 #' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 #' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
 #' \item spline: Smoothing Splines, use \code{smooth.spline} (only in 1D). Requires number of 
@@ -408,7 +451,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
                                    control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
                                    noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
 
-    else if (method == "lagp")  { # laGP library implementation
+    else if (method == "mlegp")  { # laGP library implementation of regular GP
       fits[[i]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
                                 d=model$lagp.d, g=1e-6,dK=TRUE)
     
@@ -480,7 +523,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' Requires \code{km.cov} (vector of lengthscales) and \code{km.var} (scalar process variance)  
 #' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}. 
 #' Requires to specify kernel family via \code{kernel.family}
-#' \item lagp Local GP from \pkg{laGP} (uses Gaussian squared exponential kernel)
+#' \item mlegp Local GP from \pkg{laGP} (uses Gaussian squared exponential kernel)
 #' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}. 
 #' Requires to specify kernel family via \code{kernel.family}
 #' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
@@ -635,7 +678,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
                                    control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
                                    noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
     
-    else if (n.reps < 10 & method == "lagp")  # laGP library implementation
+    else if (n.reps < 10 & method == "mlegp")  # laGP library implementation
       fits[[i,kk]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
                                 d=list(mle=FALSE, start=model$km.cov), g=list(start=1, mle=TRUE))
     else if(method =="hetgp") {
@@ -786,6 +829,9 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
     }
     
     if (method == "randomforest") {
+      if (is.null(model$rf.ntree) | is.null(model$rf.maxnode))
+        stop("Missing parameters to pass to randomForest function. Need rf.maxnode and rf.ntree")
+      
       all.models[[i]] <-  randomForest::randomForest(x=grids[[i]],y=yVal,
                                        ntree=model$rf.ntree,replace=F,maxnode=model$rf.maxnode)
       timingValue <- predict(all.models[[i]],grids[[i]],predict.all=T)$individual
@@ -805,16 +851,25 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
       }
     }
     if (method == "earth") {  # Multivariate Adaptive Regression Splines
+      if (is.null(model$earth.deg) | is.null(model$earth.nk) | is.null(model$earth.thresh))
+        stop("Missing parameters to pass to earth::earth function. Need earth.deg, earth.nk, earth.thresh model fields")
+      
       all.models[[i]] <- earth::earth(x=grids[[i]],y=yVal,
                                degree=model$earth.deg,nk=model$earth.nk,thresh=model$earth.thresh)
       timingValue <- predict(all.models[[i]],grids[[i]])
     }
     if (method == "deepnet") {  # Neural Network via the deepnet library
+      if (is.null(model$nn.layers) )
+        stop("Missing parameters to pass to deepnet::nn.train function. Need model$nn.layers")
+      
       all.models[[i]] <- deepnet::nn.train(x=grids[[i]][c.train,,drop=F],y=yVal,
                                   hidden=model$nn.layers)
       timingValue <- deepnet::nn.predict(all.models[[i]],grids[[i]])
     }
     if (method == "nnet") {  # Neural Network via the nnet library
+      if (is.null(model$nn.nodes) )
+        stop("Missing parameters to pass to nnet::nnet function. Need model$nn.nodes")
+      
       all.models[[i]] <- nnet::nnet(x=grids[[i]][c.train,,drop=F],y=yVal,
                                   size=model$nn.nodes, linout=TRUE, maxit=1000,trace=FALSE)
       timingValue <- predict(all.models[[i]],grids[[i]], type="raw")
