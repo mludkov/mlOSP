@@ -746,3 +746,31 @@ ospPredict <- function(myFit,myx,model)
   
   
 }  
+
+#' Initial design for the 2D Bermudan Put example
+#'
+#' A dataset containing 20 initial locations to be used with \code{osp.seq.design}. 
+#' The Put has strike K=40 and i.i.d assets, so the experimental design is roughly symmetric.
+#' The design is space-filling a triangular in-the-money region
+#' 
+#'
+#' @format An array with 20 rows and 2 columns:
+#' \describe{
+#'   \item{row}{unique designs}
+#'   \item{columns}{values of corresponding x_1 and x_2 coordinates}
+#' }
+"int_2d"
+
+#' Initial design for the 3D Bermudan max-Call example
+#'
+#' A dataset containing 300 initial locations to be used with \code{osp.seq.design}. 
+#' The max Call has strike K=100 and i.i.d assets, so the experimental design is roughly symmetric.
+#' The design is space-filling a hyper-rectangular in-the-money region
+#' 
+#'
+#' @format An array with 300 rows and 3 columns:
+#' \describe{
+#'   \item{row}{unique designs}
+#'   \item{columns}{values of corresponding x_1, x_2 and x_3 coordinates}
+#' }
+"int300_3d"

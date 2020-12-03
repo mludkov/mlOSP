@@ -424,15 +424,17 @@ plt.2d.surf.with.batch <- function( fit, batch_size, x=seq(25,50,len=201),y = se
   if (class(fit)=="km") {
     m <- predict(fit,data.frame(x=cbind(gr$x,gr$y)), type="UK")$mean
     sd<- predict(fit,data.frame(x=cbind(gr$x,gr$y)), type="UK")$sd
+    samples <- data.frame(x1 = fit@X[,1], x2 = fit@X[,2], r = batch_size)
   }
   if( (class(fit)=="homGP" | class(fit) == "hetGP")) {
     m <- predict(x=cbind(gr$x,gr$y), object=fit)$mean
     sd <- sqrt(predict(x=cbind(gr$x,gr$y), object=fit)$sd2)
+    samples <- data.frame(x1 = fit$X0[,1], x2 = fit$X0[,2], r = batch_size)
   }
 
   fitted.data.2d <- data.frame(x1 = gr$x, x2 = gr$y, m = m, 
                                lbound = m - 1.96 * sd , ubound = m + 1.96 * sd)
-  samples <- data.frame(x1 = fit@X[,1], x2 = fit@X[,2], r = batch_size)
+  
   cols <- RColorBrewer::brewer.pal(n = 9, name = "PuBuGn")
 
   p <- ggplot(fitted.data.2d) +
