@@ -152,7 +152,6 @@ sim.expOU.sv <- function(x0, model, dt=model$dt,useEuler=FALSE)
 #' In particular, need \code{model$r, model$rho, model$sigma, model$div, model$dim}
 #' Note that \code{model$sigma} is the **volatility** parameter (scalar)
 #' @export
-#' @importFrom mvtnorm rmvnorm
 #' @md
 sim.gbm.cor <- function( x0, model, dt=model$dt)
 {
@@ -181,7 +180,6 @@ sim.gbm.cor <- function( x0, model, dt=model$dt)
 #' Note that \code{model$sigma} is the **volatility vector**
 #' @return a vector of the new states (same dimension as x0)
 #' @export
-#' @importFrom mvtnorm rmvnorm
 #' @md
 sim.gbm.matrix <- function( x0, model, dt=model$dt)
 {

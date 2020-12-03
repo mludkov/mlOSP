@@ -8,7 +8,6 @@ plt.2d.surf(
   fit,
   x = seq(31, 43, len = 201),
   y = seq(31, 43, len = 201),
-  ub = 1e+06,
   show.var = FALSE,
   only.contour = FALSE,
   contour.col = "red",
@@ -21,12 +20,10 @@ plt.2d.surf(
 \item{x, y}{locations to use for the \code{predict()} functions. Default is a 200x200 fine grid.
 Passed to \code{expand.grid}}
 
-\item{ub}{clip the surface with an upper bound  to see the zero-contour better}
-
 \item{show.var}{if \code{TRUE} then plot posterior surrogate variance instead of surrogate mean [default = FALSE]
 This only works for \code{km} and \code{het/homGP/homTP} objects}
 
-\item{only.contour}{-- just add the zero-contour, no raster plot (uses \code{contour}, no ggplot)}
+\item{only.contour}{-- just the zero-contour, no raster plot}
 
 \item{contour.col}{(default is "red") -- color of the zero contour}
 

@@ -781,7 +781,7 @@ ospPredict <- function(myFit,myx,model)
     prediction <- predict(fit,myx) # for use with  MARS
   }
   if (is(myFit,"deepnet") ) {
-    prediction <- predict(fit,myx) # for use with deepnet
+    prediction <- nn.predict(fit,myx) # for use with deepnet
   }
   if (is(myFit,"nnet") ) {
     prediction <- predict(fit,myx,type="raw") # for use with nnet

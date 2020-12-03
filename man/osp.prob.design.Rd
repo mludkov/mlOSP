@@ -34,6 +34,13 @@ By default everything is in-sample}
  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
  \item nnet: neural network using \pkg{nnet}. This is a single-layer neural net. Specify a scalar \code{nn.nodes} 
  to describe the number of nodes at the hidden layer
+ \item lagp: local approximate Gaussian Process regression using \pkg{lagp} package. Can 
+ optionally provide \code{lagp.type} (default is "alcray" which is fastest, other choices are "alc" 
+ and "mspe") that determines how the local design is constructed, and \code{lagp.end} which determines
+ how many inputs are in the above local design. 
+ \item dynatree: dynamic trees using \pkg{dynaTree}. Requires \code{dt.type} ("constant" 
+ or "linear" fits at the leafs), \code{dt.Npart} (number of trees), \code{dt.minp} (minimum size
+ of each partition) and \code{dt.ab} (the tree prior parameter) model parameters.
  \item lm [Default]: linear global regression using \code{model$bases} (required) basis functions 
  (+ constant) which is a function pointer.
  }}

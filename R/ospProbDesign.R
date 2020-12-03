@@ -319,10 +319,6 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' combine with \code{\link{forward.sim.policy}}.
 #' 
 #' @author Mike Ludkovski
-#' @importFrom hetGP find_reps mleHetGP mleHomGP
-#' @importFrom DiceKriging km
-#' @importFrom earth earth
-#' 
 #' @export
 #' 
 #' @examples
@@ -400,7 +396,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 
       # now choose how to space-fill
       if (is.null(model$qmc.method)) {
-        init.grid <- lhs( design.size[i], my.domain)
+        init.grid <- tgp::lhs( design.size[i], my.domain)
       }
       else {
         init.grid <- model$qmc.method( design.size[i], dim=model$dim)
@@ -455,7 +451,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       fits[[i]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
                                 d=model$lagp.d, g=1e-6,dK=TRUE)
     
-     jmleGP(fits[[i]], drange=c(model$min.lengthscale,model$max.lengthscale), grange=c(1e-8, 0.001))
+     laGP::jmleGP(fits[[i]], drange=c(model$min.lengthscale,model$max.lengthscale), grange=c(1e-8, 0.001))
     }
     else if(method =="hetgp") {
       big.payoff <- model$payoff.func(big.grid,model)
@@ -623,7 +619,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
       
       # now choose how to space-fill
       if (is.null(model$qmc.method)) {
-        init.grid <- lhs( design.size[i], my.domain)
+        init.grid <- tgp::lhs( design.size[i], my.domain)
       }
       else {
         init.grid <- model$qmc.method( design.size[i], dim=model$dim)
@@ -682,7 +678,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
       fits[[i,kk]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
                                 d=list(mle=FALSE, start=model$km.cov), g=list(start=1, mle=TRUE))
     else if(method =="hetgp") {
-      hetData <- find_reps(big.grid, qValue)
+      hetData <- hetGP::find_reps(big.grid, qValue)
       fits[[i,kk]] <- hetGP::mleHetGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
       #ehtPred <- predict(x=check.x, object=hetModel)

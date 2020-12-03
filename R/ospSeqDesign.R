@@ -353,7 +353,7 @@ osp.batch.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
     if (is.null(input.domain))  {   # empirical design using simulated pilot paths
       init.grid <- grids[[i]]
 
-      init.grid <- init.grid[sample(1:min(design.size[i],dim(init.grid)[1]), design.size[i], rep=F),,drop=F]
+      init.grid <- init.grid[sample(1:min(design.size[i],dim(init.grid)[1]), design.size[i], replace=F),,drop=F]
     }
     else if (length(input.domain)==2*model$dim | length(input.domain)==1) {
       # space-filling design over a rectangle
@@ -373,7 +373,7 @@ osp.batch.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 
       # now choose how to space-fill
       if (is.null(model$qmc.method)) {
-        init.grid <- lhs( design.size[i], my.domain)
+        init.grid <- tgp::lhs( design.size[i], my.domain)
       }
       else {
         init.grid <- model$qmc.method( design.size[i], dim=model$dim)

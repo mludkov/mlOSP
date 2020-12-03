@@ -12,7 +12,7 @@ plt.2d.surf.with.batch(
   ub = 1e+06,
   show.var = FALSE,
   only.contour = FALSE,
-  contour.col = "black"
+  contour.col = "red"
 )
 }
 \arguments{
@@ -23,15 +23,13 @@ plt.2d.surf.with.batch(
 \item{x, y}{locations to use for the \code{predict()} functions. Default is a 200x200 fine grid.
 Passed to \code{expand.grid}}
 
-\item{ub}{to create an upper bound to see the zero-contour better}
-
 \item{show.var}{if \code{TRUE} then plot posterior surrogate variance instead of 
 surrogate mean (Default = FALSE)
 This only works for \code{km} and \code{het/homGP} objects}
 
 \item{only.contour}{-- just add the zero-contour, no geom_raster}
 
-\item{contour.col}{(default is "black") -- color of the zero contour}
+\item{contour.col}{(default is "red") -- color of the zero contour}
 }
 \description{
 two-dimensional image+contour plot with replication counts for an \code{osp.seq.batch.design} fit

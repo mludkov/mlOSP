@@ -30,7 +30,7 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 Requires \code{km.cov} (vector of lengthscales) and \code{km.var} (scalar process variance)  
 \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}. 
 Requires to specify kernel family via \code{kernel.family}
-\item lagp Local GP from \pkg{laGP} (uses Gaussian squared exponential kernel)
+\item mlegp Local GP from \pkg{laGP} (uses Gaussian squared exponential kernel)
 \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}. 
 Requires to specify kernel family via \code{kernel.family}
 \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}

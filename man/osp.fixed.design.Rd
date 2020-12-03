@@ -29,7 +29,7 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 \itemize{
 \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
 \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
-\item lagp Local approximate GP from the \pkg{laGP}. Requires
+\item mlegp Local approximate GP from the \pkg{laGP}. Requires
 \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
 \item spline: Smoothing Splines, use \code{smooth.spline} (only in 1D). Requires number of 

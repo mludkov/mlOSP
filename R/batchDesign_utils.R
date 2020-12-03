@@ -433,15 +433,15 @@ plt.2d.surf.with.batch <- function( fit, batch_size, x=seq(25,50,len=201),y = se
   fitted.data.2d <- data.frame(x1 = gr$x, x2 = gr$y, m = m, 
                                lbound = m - 1.96 * sd , ubound = m + 1.96 * sd)
   samples <- data.frame(x1 = fit@X[,1], x2 = fit@X[,2], r = batch_size)
-  cols <- brewer.pal(n = 9, name = "PuBuGn")
+  cols <- RColorBrewer::brewer.pal(n = 9, name = "PuBuGn")
 
   p <- ggplot(fitted.data.2d) +
     geom_raster(aes(x = x1, y = x2, fill = m)) +
     #scale_fill_gradient2(low = "black", high = "yellow", mid = "red") +
-    scale_fill_gradientn(colours = tim.colors(64)) +
+    scale_fill_gradientn(colours = fields::tim.colors(64)) +
     geom_point(data=samples, aes(x = x1, y = x2, color = r), size = 2) +
     # scale_color_gradient(low = "cyan", high = "blue", limits = c(0, 200)) +
-    scale_colour_gradientn(colours = cols, values = rescale(c(seq(20, 140, 8), 188)), guide = "colorbar", limits=c(10, 188)) +
+    scale_colour_gradientn(colours = cols, values = scales::rescale(c(seq(20, 140, 8), 188)), guide = "colorbar", limits=c(10, 188)) +
     scale_x_continuous(name = expression(X[t]^1),  expand = c(0, 0),limits=range(x)) +
     scale_y_continuous(name = expression(X[t]^2), expand = c(0, 0),limits=range(y))
 
