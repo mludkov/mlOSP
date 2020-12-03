@@ -415,7 +415,7 @@ plot_style <- function(base_size = 14, base_family = "Helvetica",...) {
 #' 
 #' @author Xiong Lyu
 #' @export
-plt.2d.surf.with.batch <- function( fit, batch_size, x=seq(25,50,len=201),y = seq(25,50,len=201),ub=1e6,
+plt.2d.surf.with.batch <- function( fit, batch_size, x=seq(25,50,len=201),y = seq(25,50,len=201),
                          show.var=FALSE, only.contour=FALSE, contour.col="red")
 {
   gr <- expand.grid(x=x,y=y)

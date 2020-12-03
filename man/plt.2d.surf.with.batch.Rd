@@ -9,7 +9,6 @@ plt.2d.surf.with.batch(
   batch_size,
   x = seq(25, 50, len = 201),
   y = seq(25, 50, len = 201),
-  ub = 1e+06,
   show.var = FALSE,
   only.contour = FALSE,
   contour.col = "red"
