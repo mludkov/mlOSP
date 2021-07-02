@@ -196,6 +196,25 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
       timingValue <- all.models[[i]]$mean 
       all.models[[i]] <- list(x=grids[[i]][c.train,,drop=F], y=yVal,
                               mle=all.models[[i]]$mle,time=all.models[[i]]$time)
+      class(all.models[[i]]) <- "agp"
+    }
+    if (method == "ligp") {
+        scale_list <- find_shift_scale_stats(as.matrix(grids[[i]][c.train,,drop=F]), yVal)
+        Xsc <- shift_scale(list(X=as.matrix(grids[[i]])), 
+                           shift=scale_list$xshift, scale=scale_list$xscale)$X
+  
+        Ysc <- (yVal-scale_list$yshift)/scale_list$yscale
+        lhs_design <- randomLHS(model$ligp.lhs,model$dim)
+        Xmt <- scale_ipTemplate(Xsc, model$ligp.n, space_fill_design=lhs_design, method='qnorm')$Xm.t
+        
+        out <- liGP(XX=Xsc, X=Xsc[c.train,,drop=F], Y=Ysc, Xm=Xmt, N=model$ligp.n, theta=model$ligp.theta,
+                    g=list(start=1e-4,min=1e-6, max=model$ligp.gmax))
+        timingValue <- out$mean*scale_list$yscale + scale_list$yshift
+        
+        all.models[[i]] <-  list(scale=scale_list, Xsc=Xsc[c.train,,drop=F], Ysc = Ysc, Xmt=Xmt)
+        class(all.models[[i]]) <- "ligp"
+        
+      
     }
     if (method =="lm") {  # Linear regression with specified basis functions
       matb <- model$bases(grids[[i]][c.train,,drop=F])
@@ -465,6 +484,31 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
       fits[[i]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
+    }
+    else if (method == "ligp") {  # local inducing point Gaussian Process via the ligp library
+      big.payoff <- model$payoff.func(big.grid,model)
+      hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
+      scale_list <- find_shift_scale_stats(hetData$X0, hetData$Z0)
+      Xsc <- hetData$X0
+      for (j in 1:model$dim)
+        Xsc[,j] <- (Xsc[,j]-scale_list$xshift[j])/scale_list$xscale[j]
+      
+      
+      Ysc <- (fsim$payoff-big.payoff-scale_list$yshift)/scale_list$yscale
+      lhs_design <- randomLHS(model$ligp.lhs,model$dim)
+      
+      Xmt <- scale_ipTemplate(Xsc, model$ligp.n, 
+                              space_fill_design=lhs_design, method='qnorm')$Xm.t
+      
+      Xsc <- shift_scale(list(X=big.grid), 
+                         shift=scale_list$xshift, scale=scale_list$xscale)$X
+      #Xsc <- big.grid
+      #for (j in 1:model$dim)
+      #  Xsc[,j] <- (Xsc[,j]-scale_list$xshift[j])/scale_list$xscale[j]
+      hetData2 <- hetGP::find_reps(Xsc, Ysc)
+      
+      fits[[i]] <-  list(scale=scale_list, reps=hetData2, Xmt=Xmt)
+      class(fits[[i]]) <- "ligprep"
     }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
       fits[[i]] <- stats::smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
@@ -832,6 +876,24 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
                                        ntree=model$rf.ntree,replace=F,maxnode=model$rf.maxnode)
       timingValue <- predict(all.models[[i]],grids[[i]],predict.all=T)$individual
       timingValue <- apply(timingValue,1,mean)   # median or mean prediction could be used
+    }
+    
+    if (method == "ligp") {  # local inducing point Gaussian Process via the ligp library
+      scale_list <- find_shift_scale_stats(as.matrix(grids[[i]]), yVal)
+      Xsc <- shift_scale(list(X=as.matrix(grids[[i]])), 
+                             shift=scale_list$xshift, scale=scale_list$xscale)$X
+
+      Ysc <- (yVal-scale_list$yshift)/scale_list$yscale
+      lhs_design <- randomLHS(model$ligp.lhs,model$dim)
+
+      Xmt <- scale_ipTemplate(Xsc, model$ligp.n, space_fill_design=lhs_design, method='qnorm')$Xm.t
+
+      out <- liGP(XX=Xsc, X=Xsc, Y=Ysc, Xm=Xmt, N=model$ligp.n, theta=model$ligp.theta,
+                  g=list(start=1e-4,min=1e-6, max=model$ligp.gmax))
+      timingValue <- out$mean*scale_list$yscale + scale_list$yshift
+
+      all.models[[i]] <-  list(scale=scale_list, Xsc=Xsc, Ysc = Ysc, Xmt=Xmt)
+      class(all.models[[i]]) <- "ligp"
     }
     
     if (method == "loess" & ncol(grids[[i]]) <= 2) { # LOESS only works in 1D or 2D

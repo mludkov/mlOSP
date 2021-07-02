@@ -84,6 +84,32 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
         rule <-  predict(fit[[i+1-offset]], new=curX[contNdx[in.the.money],,drop=F])
       if (class(fit[[i+1-offset]]) == "npregression")
         rule <- predict(fit[[i+1-offset]], new=curX[contNdx[in.the.money],,drop=F])
+      if(class(fit[[i+1-offset]]) == "ligp") {
+        newX <- shift_scale(list(X=as.matrix(curX[contNdx[in.the.money],,drop=F])), 
+        #                   #list(sigma_vec = matrix(sigma_vec, nrow=1)),
+                           shift=fit[[i+1-offset]]$scale$xshift, scale=fit[[i+1-offset]]$scale$xscale)$X
+        
+        #Xmt <- scale_ipTemplate(Xsc, model$ligp.n, space_fill_design=lhs_design, method='chr')$Xm.t
+        out <- liGP(XX=newX, X=fit[[i+1-offset]]$Xsc, Y=fit[[i+1-offset]]$Ysc, 
+                     Xm=fit[[i+1-offset]]$Xmt, N=model$ligp.n, theta=model$ligp.theta,
+                    g=list(start=1e-4,min=1e-6, max=1e-2), epsQ=1e-4)
+        rule <- out$mean*fit[[i+1-offset]]$scale$yscale + fit[[i+1-offset]]$scale$yshift
+        
+      }
+      if(class(fit[[i+1-offset]]) == "ligprep") {
+        newX <- shift_scale(list(X=as.matrix(curX[contNdx[in.the.money],,drop=F])), 
+                            shift=fit[[i+1-offset]]$scale$xshift, scale=fit[[i+1-offset]]$scale$xscale)$X
+        #d <- darg(NULL, fit[[i+1-offset]]$reps$X0)
+        #d$start <- 0.1
+        g <- garg(list(mle=TRUE), fit[[i+1-offset]]$reps$Z0)
+        g$max <- model$ligp.gmax
+        #ligp_qnorm <- liGP(XX, Xm.t=Xmt.qnorm$Xm.t, N=N,g=g, theta=d,
+        #                   num_thread=num_thread, reps=reps_list)
+        out <- liGP(XX=newX, Xm=fit[[i+1-offset]]$Xmt, N=model$ligp.n, theta=model$ligp.theta,
+                    g=g, reps=fit[[i+1-offset]]$reps, num_thread=model$ligp.cores)
+        rule <- out$mean*fit[[i+1-offset]]$scale$yscale + fit[[i+1-offset]]$scale$yshift
+        
+      }
       
       if (use.qv == TRUE & i== M) {
         payoff[contNdx] = payoff[contNdx] + rule  # continuation value of paths that didn't stop yet
@@ -147,7 +173,8 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
 #' @return a ggplot handle for the created plot.
 #' @export
 plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),
-                         show.var=FALSE, only.contour=FALSE, contour.col="red",bases=NULL)
+                         show.var=FALSE, only.contour=FALSE, contour.col="red",
+                         bases=NULL, strike=0)
 {
   gr <- expand.grid(x=x,y=y)
   
@@ -181,6 +208,22 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),
     obj <-  predict(fit, new=cbind(gr$x,gr$y))
   if (class(fit) == "npregression")
     obj <- predict(fit,exdat=cbind(gr$x,gr$y))
+  if (class(fit)== "ligprep") {
+    newX <- shift_scale(list(X=as.matrix(cbind(gr$x, gr$y))), 
+                        shift=fit$scale$xshift, scale=fit$scale$xscale)$X
+    #d <- darg(NULL, ft$reps$X0)
+    #d$start <- 0.1
+    g <- garg(list(mle=TRUE), fit$reps$Z0)
+    g$max <- 1
+    out <- liGP(XX=newX, Xm=fit$Xmt, N=100, theta=1,
+                g=g, reps=fit$reps, num_thread=4)
+    obj <- out$mean*fit$scale$yscale + fit$scale$yshift
+  }
+  # to cut-out the OTM region for max-Call
+  if (strike > 0){
+    payoffs <-  pmax(apply(gr,1,max)-strike,0)
+    obj[ which(payoffs == 0)] <- NaN
+  }
   
   if (only.contour==TRUE) {
     #imx <- as.image(x=cbind(gr$x,gr$y),obj,nr=100,nc=100)
@@ -202,7 +245,7 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),
             legend.text = element_text(size = 11), legend.spacing.x = unit(0.2, 'cm'),
             legend.key.height = unit(1,"cm"), axis.text=element_text(size=11),
             axis.title=element_text(size=12,face="bold") ) +
-      scale_fill_gradientn(colours = tim.colors(64)) 
+      scale_fill_gradientn(colours = tim.colors(64),na.value="white") 
   }
   #  quilt.plot(gr$x, gr$y, pmin(ub,obj),xlim=range(x),ylim=range(y),
   #             xlab=expression(X[t]^1), ylab=expression(X[t]^2),cex.lab=1.2, cex.axis=1.1,...)
@@ -746,6 +789,68 @@ ospPredict <- function(myFit,myx,model)
   
   
 }  
+
+## Helper for liGP
+shift_scale <- function(shift_scale_list = NULL, scale_list = NULL, shift = NULL, scale = NULL){
+  
+  if (!is.null(shift) & !is.null(scale)){
+    if (!is.null(shift_scale_list)){
+      dim <- ncol(shift_scale_list[[1]])
+    } else {
+      dim <- ncol(scale_list[[1]])
+    }
+    
+    if (length(shift) == 1) shift <- rep(shift, dim)
+    if (length(scale) == 1) scale <- rep(scale, dim)
+    
+    for(k in 1:dim) {
+      if (!is.null(shift_scale_list))
+        for(l in 1:length(shift_scale_list))
+          shift_scale_list[[l]][,k] <- (shift_scale_list[[l]][,k]-shift[k])/scale[k]
+        if (!is.null(scale_list))
+          for(l in 1:length(scale_list))
+            scale_list[[l]][,k] <- scale_list[[l]][,k]/scale[k]
+    }
+  }
+  
+  return(c(shift_scale_list, scale_list))
+}
+
+
+## find_shift_scale_stats:
+##
+## Normalizes the input dimensions, then fits a global GP
+## to a subset of the data (up to 1000 points). The 
+## square root of the lengthscales are used to scale the
+## normalized inputs. Returns the shift and scale parameters 
+## for both the inputs (X) and response (Y).
+find_shift_scale_stats <- function(X, Y, gp_size = 1000){
+  Xsc <- X
+  Ysc <- (Y - mean(Y))/sd(Y)
+  
+  xmins <- apply(X, 2, min)
+  xmaxs <- apply(X, 2, max)
+  
+  for(k in 1:ncol(X)) 
+    Xsc[,k] <- (X[,k]-xmins[k])/(xmaxs[k]-xmins[k])
+  
+  ## Fit global model to subset of data to get lengthscales
+  nsub <- min(nrow(X), gp_size)
+  d2 <- darg(NULL, Xsc)
+  subs <- sample(1:nrow(X), nsub, replace=FALSE)
+  
+  gpsi <- mleHomGP(Xsc[subs,], Ysc[subs], lower = rep(5e-3, ncol(X)), 
+                   upper=rep(2, ncol(X))) #, known=list(g=1e-4))
+  init.th <- gpsi$theta
+  
+  ## Set shift and scale parameters
+  sd <- sqrt(init.th)*(xmaxs-xmins)
+  #browser()
+  mu <- xmins
+  scale_list <- list(xshift = mu, xscale = sd, yshift = mean(Y) + sd(Y)*gpsi$beta0, yscale = sd(Y))
+  
+  return(scale_list)
+}
 
 #' Initial design for the 2D Bermudan Put example
 #'
