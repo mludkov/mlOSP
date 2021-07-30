@@ -350,6 +350,9 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 {
   M <- model$T/model$dt
   t.start <- Sys.time()
+  
+  if ( is.null(model$stop.times))
+    model$stop.times = 1:M
 
   fits <- list()   # list of fits at each step
   grids <- list()
@@ -371,6 +374,8 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
   design.size <- rep(0,M)
 
   for (i in (M-1):1) {
+    if (i %in% model$stop.times == FALSE)
+       next   # no stopping right now   
     # figure out design size -- this is the number of unique sites, before restricting to in-the-money
     if (length(model$N) == 1)
       design.size[i] <- model$N
@@ -387,6 +392,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 
     if (is.null(input.domain))  {   # empirical design using simulated pilot paths
       init.grid <- grids[[i]]
+      init.grid <- init.grid[ model$payoff.func(grids[[i]], model) > inTheMoney.thresh,,drop=F]
 
       init.grid <- init.grid[sample(1:min(design.size[i],dim(init.grid)[1]), design.size[i], rep=F),,drop=F]
     }
@@ -724,13 +730,15 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
     else if(method =="hetgp") {
       hetData <- hetGP::find_reps(big.grid, qValue)
       fits[[i,kk]] <- hetGP::mleHetGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
-                                   lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, 
+                                   noiseControl=list(g_bounds=c(1e-4,100)), covtype=model$kernel.family)
       #ehtPred <- predict(x=check.x, object=hetModel)
     }
     else if (method =="homgp") {
       hetData <- hetGP::find_reps(big.grid, qValue)
       fits[[i,kk]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
-                                   lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, 
+                                   covtype=model$kernel.family)
     }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
       fits[[i,kk]] <- smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
@@ -826,6 +834,8 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 osp.tvr <- function(N,model,subset=1:N,method="lm")
 {
   M <- model$T/model$dt
+  if ( is.null(model$stop.times))
+    model$stop.times = 1:M
   grids <- list()
   all.models <- list()
   if (is.null(subset))
@@ -856,6 +866,8 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
   # Estimate T(t,x)
   for (i in (M-1):1)
   {
+    if (i %in% model$stop.times == FALSE)
+      next   # no stopping right now 
     # forward predict
     immPayoff <- model$payoff.func(grids[[i]],model)
     
@@ -977,4 +989,206 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
   # timeElapsed: total running time
   return( list(fit=all.models,p=price, val=contValue[train], test=test,
                timeElapsed=Sys.time()-t.start))
+}
+
+osp.impulse.control <- function(model,input.domain=NULL, method ="km")
+{
+  M <- model$T/model$dt
+  t.start <- Sys.time()
+  
+  fits <- list()   # list of fits at each step
+  grids <- list()
+  
+  cur.sim <- 0
+  
+  # set-up pilot design using a forward simulation of X
+  if (model$pilot.nsims > 0) {
+    grids[[1]] <- model$sim.func( matrix(rep(model$x0[1:model$dim], model$pilot.nsims),
+                                         nrow=model$pilot.nsims, byrow=T), model, model$dt)
+    for (i in 2:(M-1))
+      grids[[i]] <- model$sim.func( grids[[i-1]], model, model$dt)
+    grids[[1]] <- grids[[3]]
+    cur.sim <- model$pilot.nsims
+  }
+  
+  
+  #----- step back in time
+  design.size <- rep(0,M)
+  fits[[M]] <- NULL
+  
+  for (i in (M-1):1) {
+    # figure out design size -- this is the number of unique sites, before restricting to in-the-money
+    if (length(model$N) == 1)
+      design.size[i] <- model$N
+    else
+      design.size[i] <- model$N[i]
+    
+    #figure out batch size
+    if (is.null(model$batch.nrep))
+      n.reps <- 1
+    else if (length(model$batch.nrep) == 1)
+      n.reps <- model$batch.nrep
+    else
+      n.reps <- model$batch.nrep[i]
+    
+    if (is.null(input.domain))  {   # empirical design using simulated pilot paths
+      init.grid <- grids[[i]]
+      #init.grid <- init.grid[ model$payoff.func(grids[[i]], model) > inTheMoney.thresh,,drop=F]
+      
+      init.grid <- init.grid[sample(1:min(design.size[i],dim(init.grid)[1]), design.size[i], rep=F),,drop=F]
+    }
+    else if (length(input.domain)==2*model$dim | length(input.domain)==1) {
+      # space-filling design over a rectangle
+      if (length(input.domain) == 1){
+        # specifies the box as empirical quantiles, should be 0.01. If zero then use the full range
+        my.domain <- matrix( rep(0, 2*model$dim), ncol=2)
+        if (input.domain > 0) {
+          for (jj in 1:model$dim)
+            my.domain[jj,] <- quantile( grids[[i]][,jj], c(input.domain, 1-input.domain))
+        }
+        else {
+          for (jj in 1:model$dim)
+            my.domain[jj,] <- range( grids[[i]][,jj] )
+        }
+      }
+      else my.domain <- input.domain  #  user-specified box
+      
+      if (is.null(model$min.lengthscale) & model$dim == 1 )
+        model$min.lengthscale <- (my.domain[2]-my.domain[1])/100
+      if (is.null(model$min.lengthscale) & model$dim > 1 )
+        model$min.lengthscale <- (my.domain[,2]-my.domain[,1])/100
+      if (is.null(model$max.lengthscale) )
+        model$max.lengthscale <- 100*model$min.lengthscale
+      
+      # now choose how to space-fill
+      if (is.null(model$qmc.method)) {
+        init.grid <- tgp::lhs( design.size[i], my.domain)
+      }
+      else {
+        init.grid <- model$qmc.method( design.size[i], dim=model$dim)
+        # rescale to the correct rectangle
+        for (jj in 1:model$dim)
+          init.grid[,jj] <- my.domain[jj,1] + (my.domain[jj,2]-my.domain[jj,1])*init.grid[,jj]
+        
+      }
+    }
+    else  {   # fixed pre-specified design
+      init.grid <- matrix(input.domain,nrow=length(input.domain)/model$dim)
+      design.size[i] <- nrow(init.grid)
+    }
+    
+    #init.grid <- init.grid[ model$payoff.func(init.grid, model) > inTheMoney.thresh,,drop=F]
+    
+    design.size[i] <- dim(init.grid)[1]
+    all.X <- matrix( rep(0, (model$dim+2)*design.size[i]), ncol=model$dim+2)
+    
+    # construct replicated design
+    big.grid <- matrix(rep(t(init.grid), n.reps), ncol = ncol(init.grid), byrow = TRUE)
+    
+    fsim <- forward.impulse.policy( big.grid, M-i,fits[(i+1):M],model)
+    fsim <- pmax( fsim$payoff, 0)
+    
+    #if (i < (M-1))
+    #   immPayoff <- model$impulse.func( init.grid, model, fits[[i+1]])
+    #else
+    #   immPayoff <- rep(0, design.size[i])
+    
+    # pre-averaged mean/variance
+    for (jj in 1:design.size[i]) {
+      all.X[jj,model$dim+1] <- mean( fsim[ jj + seq(from=0,len=n.reps,by=design.size[i])]) #- immPayoff[ jj]
+      all.X[jj,model$dim+2] <- var( fsim[ jj + seq(from=0,len=n.reps,by=design.size[i])])
+    }
+    
+    all.X[,1:model$dim] <- init.grid  # use the first dim+1 columns for the batched GP regression.
+    #browser()
+    
+    # create the km object
+    if (n.reps > 10 & method == "km")
+      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
+                                   noise.var=all.X[,model$dim+2]/n.reps, control=list(trace=F),
+                                   coef.trend=0,coef.cov=model$km.cov, coef.var=model$km.var, covtype=model$kernel.family)
+    else if (method == "km")  # manually estimate the nugget for small batches
+      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
+                                   control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
+                                   coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var,
+                                   nugget.estim=TRUE, nugget=sqrt(mean(all.X[,model$dim+2])), covtype=model$kernel.family)
+    else if (method =="trainkm")
+      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
+                                   control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
+                                   noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
+    
+    else if (method == "mlegp")  { # laGP library implementation of regular GP
+      fits[[i]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],
+                                d=model$lagp.d, g=1e-6,dK=TRUE)
+      
+      laGP::jmleGP(fits[[i]], drange=c(model$min.lengthscale,model$max.lengthscale), grange=c(1e-8, 0.001))
+    }
+    else if(method =="hetgp") {
+      big.payoff <- model$payoff.func(big.grid,model)
+      hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
+      fits[[i]] <- hetGP::mleHetGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
+      #ehtPred <- predict(x=check.x, object=hetModel)
+    }
+    else if (method =="homgp") {
+      big.payoff <- model$payoff.func(big.grid,model)
+      hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
+      fits[[i]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
+    }
+    else if (method == "ligp") {  # local inducing point Gaussian Process via the ligp library
+      big.payoff <- model$payoff.func(big.grid,model)
+      hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
+      scale_list <- find_shift_scale_stats(hetData$X0, hetData$Z0)
+      Xsc <- hetData$X0
+      for (j in 1:model$dim)
+        Xsc[,j] <- (Xsc[,j]-scale_list$xshift[j])/scale_list$xscale[j]
+      
+      
+      Ysc <- (fsim$payoff-big.payoff-scale_list$yshift)/scale_list$yscale
+      lhs_design <- randomLHS(model$ligp.lhs,model$dim)
+      
+      Xmt <- scale_ipTemplate(Xsc, model$ligp.n, 
+                              space_fill_design=lhs_design, method='qnorm')$Xm.t
+      
+      Xsc <- shift_scale(list(X=big.grid), 
+                         shift=scale_list$xshift, scale=scale_list$xscale)$X
+      #Xsc <- big.grid
+      #for (j in 1:model$dim)
+      #  Xsc[,j] <- (Xsc[,j]-scale_list$xshift[j])/scale_list$xscale[j]
+      hetData2 <- hetGP::find_reps(Xsc, Ysc)
+      
+      fits[[i]] <-  list(scale=scale_list, reps=hetData2, Xmt=Xmt)
+      class(fits[[i]]) <- "ligprep"
+    }
+    else if (model$dim == 1 & method=="spline")  # only possible in 1D
+      fits[[i]] <- stats::smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
+    else if (method == "rvm") {
+      if (is.null(model$rvm.kernel))
+        rvmk <- "rbfdot"
+      else
+        rvmk <- model$rvm.kernel
+      fits[[i]] <- kernlab::rvm(x=init.grid, y=all.X[,model$dim+1],kernel=rvmk)
+    }
+    else if (method == "npreg") {
+      if (is.null(model$np.kertype))
+        kertype = "gaussian"
+      else
+        kertype <- model$np.kertype
+      if (is.null(model$np.regtype))
+        regtype <- "lc"
+      else
+        regtype <- model$np.regtype
+      if (is.null(model$np.kerorder))
+        kerorder <- 2
+      else
+        kerorder <- model$np.kerorder
+      
+      fits[[i]] <- np::npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+                             regtype=regtype, ckertype=kertype,ckerorder=kerorder)
+    }
+    
+  }  # end of loop over time-steps
+  
+  return (list(fit=fits,timeElapsed=Sys.time()-t.start))
 }

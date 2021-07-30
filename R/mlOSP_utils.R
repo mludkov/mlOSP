@@ -820,7 +820,7 @@ shift_scale <- function(shift_scale_list = NULL, scale_list = NULL, shift = NULL
 ## find_shift_scale_stats:
 ##
 ## Normalizes the input dimensions, then fits a global GP
-## to a subset of the data (up to 1000 points). The 
+## to a subset of the data (up to gp_size points). The 
 ## square root of the lengthscales are used to scale the
 ## normalized inputs. Returns the shift and scale parameters 
 ## for both the inputs (X) and response (Y).
@@ -850,6 +850,67 @@ find_shift_scale_stats <- function(X, Y, gp_size = 1000){
   scale_list <- list(xshift = mu, xscale = sd, yshift = mean(Y) + sd(Y)*gpsi$beta0, yscale = sd(Y))
   
   return(scale_list)
+}
+
+
+############### Impulse for Forest rotation
+# Impulse function for forest
+forest.impulse <- function(cur_x, model, fit)
+{
+  payoff <- ( cur_x - model$impulse.fixed.cost - model$impulse.target)
+  if (is.null(fit))
+     next_step_value <- 0
+  else
+    next_step_value <- predict(fit, model$impulse.target)$y
+  
+  return( payoff + next_step_value*exp(-model$dt*model$r))
+  
+}
+
+forward.impulse.policy <- function( x,M,fit,model)
+{
+  curX <- model$sim.func( x,model,model$dt)
+  payoff <- rep(0, nrow(curX))
+  tau <- rep(0, nrow(curX))
+  paths <- array(0, dim=c(nrow(curX),ncol(curX),M))
+  paths[,,1] <- curX
+  imps <- array(NaN, dim=c(nrow(curX),M))
+  bnd <- rep(0,M)
+
+  i <- 1
+  # main loop forward
+  while (i < M) {
+    
+    if (is(fit[[i]],"smooth.spline") )
+        cont <- exp(-model$dt*model$r)*predict(fit[[i]],curX)$y # for use with  splines
+   
+      if (is(fit[[i]],"lm") ) {
+        lenn <- length(fit[[i]]$coefficients)
+        cont <-  fit[[i]]$coefficients[1] + model$bases(curX) %*%
+          fit[[i]]$coefficients[2:lenn]
+      }
+      impulse <- forest.impulse(curX,model,fit[[i]])
+      impNdx <- which(cont < impulse & curX > model$impulse.fixed.cost)
+      if (length(impNdx) > 0) {
+         imps[impNdx,i] <- curX[impNdx]
+         bnd[i] <- min(curX[impNdx])
+         payoff[impNdx] <- payoff[impNdx] + exp(-model$r*model$dt*i)*pmax(curX[impNdx] - model$impulse.fixed.cost- model$impulse.target, 0)
+         curX[impNdx] <- model$impulse.target  # reset impulsed x
+         tau[impNdx] <- tau[impNdx] + 1
+         
+      }
+    
+    i <- i+1
+    
+    curX <- model$sim.func( curX,model,model$dt )
+    paths[,,i] <- curX
+
+  }
+  # terminal time
+  payoff <- payoff + exp(-model$r*model$dt*M)*pmax(curX - model$impulse.fixed.cost- model$impulse.target, 0)
+  
+  return( list(payoff=payoff,tau=tau,paths=paths,impulses=imps,bnd=bnd))
+  # payoff is the resulting payoff NPV from t=0
 }
 
 #' Initial design for the 2D Bermudan Put example
