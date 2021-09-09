@@ -991,7 +991,56 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
                timeElapsed=Sys.time()-t.start))
 }
 
-osp.impulse.control <- function(model,input.domain=NULL, method ="km")
+
+#############################
+#' RMC for impulse control.
+#' Training design specified explicitly by the user
+#' @title LS-flavor RMC algorithm with a variety of regression methods for stochastic impulse control
+#' @param model a list defining the simulator and reward model, with the two main model hooks being 
+#' \code{impulse.func} (plus parameters) and \code{sim.func} (plus parameters). 
+#' 
+#' 
+#' @param method a string specifying regression method to use
+#' \itemize{
+#'  \item spline [Default]: \code{smooth.spline} from \pkg{base} which only works \emph{in 1D}
+#'  \item randomforest: (from \pkg{randomForest} package) requires \code{rf.maxnode}
+#'  and \code{rf.ntree} (number of trees) model parameters
+#'  \item loess: only works in \emph{1D or 2D}, requires \code{lo.span} model parameter
+#'  \item deepnet: neural network using \pkg{deepnet}. Specify \code{nn.layers} as a vector 
+#'  to describe the number of nodes across hidden layers
+#'  \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
+#' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
+#'  \item lm: linear global regression using \code{model$bases} (required) basis functions (+ constant)
+#'  }
+#' @export
+#' @return a list containing
+#' \itemize{
+#' \item \code{fit} a list containing all the models generated at each time-step. \code{fit[[1]]} is the emulator
+#' at \eqn{t=\Delta t}, the last one is \code{fit[[M-1]]} which is emulator for \eqn{T-\Delta t}.
+#' \item \code{timeElapsed} (based on \code{Sys.time})
+#' }
+#' @details
+#'  Works with a design specified by the user
+#'  
+#'  Calls \code{model$impulse.func}, so the latter must be set prior to calling.
+#'  Also needs \code{model$dt} and \code{model$r} for discounting. 
+#'  
+#'  Calls \code{model$sim.func} to generate forward paths. Use in conjunction with
+#'  \code{\link{forward.sim.impulse}} 
+#'  
+#' @author 
+#' Mike Ludkovski
+#'  
+#' @examples
+#' set.seed(1)
+#' require(DiceKriging)
+#' modelBelak <- list(dim=1, sim.func=sim.bm, r=0.5, drift=0, sigma=1, 
+#' x0=1,  impulse.fixed.cost = 1,impulse.target = 0,impulse.func = forest.impulse,
+#' imp.type = "forest",T=5, dt=0.05,pilot.nsims=0,batch.nrep = 10,nk = 30,N = 601)
+#' belSolve <- osp.impulse.control(modelBelak, input.domain = seq(-0.5,2.5,by=0.005),method="spline")
+###############################
+
+osp.impulse.control <- function(model,input.domain=NULL, method ="spline")
 {
   M <- model$T/model$dt
   t.start <- Sys.time()
@@ -1100,7 +1149,8 @@ osp.impulse.control <- function(model,input.domain=NULL, method ="km")
     }
     
     all.X[,1:model$dim] <- init.grid  # use the first dim+1 columns for the batched GP regression.
-    #browser()
+    if (i %% 10 == 0)
+      browser()
     
     # create the km object
     if (n.reps > 10 & method == "km")
@@ -1115,7 +1165,7 @@ osp.impulse.control <- function(model,input.domain=NULL, method ="km")
     else if (method =="trainkm")
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
                                    control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
-                                   noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
+                                   noise.var=pmax(1e-6,all.X[,model$dim+2]/n.reps), covtype=model$kernel.family)
     
     else if (method == "mlegp")  { # laGP library implementation of regular GP
       fits[[i]]  <- laGP::newGP(X=init.grid, Z=all.X[,model$dim+1],

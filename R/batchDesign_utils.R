@@ -174,9 +174,9 @@ batch.adsa <- function(fit, r_seq, xtest, xt_dens, x_new, r0, nugget, method) {
 
     if (method == "homtp") {
       # Lower triangle matrix of covariance matrix
-      C <- hetGP::cov_gen(x_all, theta=fit$theta, type="Gaussian") * fit$sigma2
+      C <- hetGP::cov_gen(x_all, theta=fit$theta, type=fit$covtype) * fit$sigma2
     } else {
-      C <- hetGP::cov_gen(x_all, theta=fit$theta, type="Gaussian") * fit$nu_hat
+      C <- hetGP::cov_gen(x_all, theta=fit$theta, type=fit$covtype) * fit$nu_hat
     }
     k = C[1:nrow(xtest), (nrow(xtest) + nrow(fit$X0) + 1)]
     k_new = C[(nrow(xtest) + 1):(nrow(xtest) + nrow(fit$X0)), (nrow(xtest) + nrow(fit$X0) + 1)]
@@ -240,9 +240,16 @@ batch.ddsa <- function(fit, r_seq, xtest, xt_dens, r0, method) {
 
     if (method == "homtp") {
       # Lower triangle matrix of covariance matrix
-      C <- hetGP::cov_gen(fit$X0, theta=fit$theta, type="Gaussian") * fit$sigma2 + diag(rep(fit$g, dim(fit$X0)[1]))
-    } else {
-      C <- fit$nu_hat * (hetGP::cov_gen(fit$X0, theta=fit$theta, type="Gaussian") + fit$Lambda * diag(1/fit$mult))
+      C <- hetGP::cov_gen(fit$X0, theta=fit$theta, type=fit$covtype) * fit$sigma2 + 
+        diag(rep(fit$g, dim(fit$X0)[1]))
+    }
+    if (method == "hetgp") {
+      C <- fit$nu_hat * (hetGP::cov_gen(fit$X0, theta=fit$theta, type=fit$covtype) + 
+                           fit$Lambda * diag(1/fit$mult))
+    }
+    if (method == "homgp") {
+      C <- fit$nu_hat * (hetGP::cov_gen(fit$X0, theta=fit$theta, type=fit$covtype) + 
+                           fit$g * diag(1/fit$mult))
     }
     L <- t(chol(C))
   }

@@ -46,6 +46,6 @@ a list containing:
 Simulate h(X_tau) using FIT (can be a dynaTree, smooth.spline, MARS or RandomForest or RVM or hetGP)
 }
 \details{
-Should be used in conjuction with the \code{osp.xx} functions that build the emulators. Also called
+Should be used in conjuction with the \code{osp.xxx} functions that build the emulators. Also called
 internally from \code{\link{osp.fixed.design}}
 }

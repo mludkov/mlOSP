@@ -20,7 +20,7 @@
 #'  \item \code{sims} is a list; \code{sims[[i]]} are the forward x-values of paths at t=i (those not stopped yet)
 #' \code{nsims} number of total 1-step simulations performed
 #' }
-#' @details Should be used in conjuction with the \code{osp.xx} functions that build the emulators. Also called
+#' @details Should be used in conjuction with the \code{osp.xxx} functions that build the emulators. Also called
 #' internally from \code{\link{osp.fixed.design}}
 forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE)
 {
@@ -853,52 +853,197 @@ find_shift_scale_stats <- function(X, Y, gp_size = 1000){
 }
 
 
-############### Impulse for Forest rotation
-# Impulse function for forest
-forest.impulse <- function(cur_x, model, fit)
+######################################
+#' @title Compute intervention function for the Faustmann forest rotation problem
+#'
+#' @details Calculates the intervention operator for a 1-D impulse control problem
+#' arising in the Faustmann forest rotation setup. In that case, the impulse target level
+#' is fixed at zero (or \code{model$impulse.target}) and the impulse value is x-fixed.cost-target
+#' Calls \code{ospPredict} on \code{fit} to find that
+#' @param cur_x Set of inputs where to compute the intervention function.
+#' Should be a n x 1 vector
+#' @param model a list containing all model parameters,
+#' including \code{model$impulse.fixed.cost} for the constant cost of any impulse
+#' @param fit Object containing the one-step-ahead functional approximator for V(k,x)
+#' @param ext logical flag (default is FALSE) whether to return extended information
+#' @export
+forest.impulse <- function(cur_x, model, fit, ext=FALSE)
 {
   payoff <- ( cur_x - model$impulse.fixed.cost - model$impulse.target)
   if (is.null(fit))
      next_step_value <- 0
-  else
-    next_step_value <- predict(fit, model$impulse.target)$y
+  else {
+    
+    
+    next_step_value <- ospPredict(fit, model$impulse.target,model)
+    # if (is(fit,"smooth.spline") )
+    #   next_step_value <- predict(fit,model$impulse.target)$y # for use with  splines
+    # if (is(fit,"km") ) # DiceKriging
+    #   next_step_value <- predict(fit,data.frame(x=model$impulse.target),type="UK")$mean
+    # if( class(fit)=="homGP" | class(fit) == "hetGP" | class(fit) == "homTP")
+    #   next_step_value <- predict(x=model$impulse.target, object=fit)$mean
+  }
   
-  return( payoff + next_step_value*exp(-model$dt*model$r))
+  if (ext == TRUE)
+    return( list(payoff=payoff + next_step_value*exp(-model$dt*model$r),
+                 imp.target=model$impulse.target,imp.value = next_step_value) )
+  else
+    return (payoff + next_step_value*exp(-model$dt*model$r))
   
 }
 
+######################################
+#' @title Compute intervention function for an impulse problem wth linear impulse costs
+#'
+#' @details Calculates the intervention operator for a 1-D impulse control problem.
+#' Assumes linear impulse costs with slope=1. This means that the optimal impulse 
+#' target level is independent of current state x and is characterized by the location
+#' where the gradient of fitted value function is equal to 1.
+#' Calls \code{ospPredict} on \code{fit} to find that
+#' @param cur_x Set of inputs where to compute the intervention function
+#' Should be a n x 1 vector
+#' @param model a list containing all model parameters. 
+#' In particular must have \code{model$impulse.fixed.cost} for the constant cost of any impulse
+#' @param fit Object containing the one-step-ahead functional approximator for V(k,x)
+#' @param ext logical flag (default is FALSE) whether to return extended information
+#' @export
+lin.impulse <- function(cur_x, model, fit, ext=FALSE)
+{
+  linCost <- 1; dz <- 0.1
+  zx <- seq(40,60,by=dz); len.zx <- length(zx)-1
+  imp_value <- diff(ospPredict(fit, zx,model))/dz
+  imp_value_p1 <- imp_value[2:len.zx]
+  bn <- which((imp_value[1:(len.zx-1)]-linCost)*(imp_value_p1-linCost) <0 )
+  if ( (imp_value[1]-linCost)*(imp_value[len.zx]-linCost) < 0)
+    imp.target <- uniroot(function(x)(diff(ospPredict(fit,c(x-0.005,x+0.005),model))*100*exp(-model$dt*model$r)-linCost),
+                           lower=40,upper=60)$root
+  else if (length(bn) > 0)
+     imp.target <- max(zx[bn])+dz/2
+  else
+     imp.target = model$impulse.target
+  payoff <- ( cur_x - model$impulse.fixed.cost - imp.target)
+  next_step_value <- ospPredict(fit, imp.target, model)
+  
+  if (ext == TRUE)
+     return( list(payoff=payoff + next_step_value*exp(-model$dt*model$r),
+               imp.target=imp.target,imp.value = next_step_value) )
+  else
+     return (payoff + next_step_value*exp(-model$dt*model$r))
+}
+
+######################################
+#' @title Compute intervention function for Capacity Expansion impulse problems
+#'
+#' @details Calculates the intervention operator for a 2-D capacity
+#' expansion problem. This is done by running \code{optimize} on the
+#' cost-to-go based on \code{fit}. Calls \code{ospPredict}
+#' @param cur_x Set of inputs where to compute the intervention function
+#' Should be a n x 2 matrix, with first column for prices and second column
+#' for capacities. Impulse affects second column only.
+#' @param model a list containing all model parameters. 
+#' In particular must have \code{model$imp.cost.capexp} to compute cost of impulses
+#' @param fit Object containing the one-step-ahead functional approximator for V(k,x)
+#' @param ext logical flag (default is FALSE) whether to return extended information
+#' @export
+capexp.impulse <- function(cur_x, model, fit, ext=FALSE)
+{
+  len <- dim(cur_x)[1]
+  imp.target <- rep(0, len); payoff <- rep(0,len)
+  for (i in 1:len) {
+    intervene <- function(z)(ospPredict(fit,cbind(cur_x[i,1],matrix(z,nrow=1)),model)*
+                               exp(-model$dt*model$r)-
+                               model$imp.cost.capexp(cur_x[i,2],z))
+    # restrict to optimizing within the range of input capacities
+    optimizer <- optimize(intervene, c(cur_x[i,2],max(cur_x[,2])),maximum=TRUE)
+    imp.target[i] <- optimizer$maximum
+    payoff[i] <- optimizer$objective #model$imp.cost.capexp(cur_x[i,2],imp.target[i])   
+  }
+  imp.value <- ospPredict(fit,cbind(cur_x[,1],matrix(imp.target,ncol=1)),model)
+  
+  if (ext == TRUE)
+    return( list(payoff=payoff,
+                 imp.target=imp.target,imp.value = imp.value) )
+  else
+    return (payoff)
+}
+
+############################################
+#' @title Simulate a payoff of an impulse strategy along a set of forward paths
+#' @param model a list containing all model parameters. In particular need
+#' \code{model$impulse.func} for computing the intervention operator (optimal impulse
+#' to consider), \code{model$sim.func} for simulating each step with time step 
+#' \code{model$dt}.
+#' @param x     is a matrix of starting values
+#'
+#' if input \code{x} is a list, then use the grids specified by x
+#' @param M     number of time steps to forward simulate
+#' @param fit   a list of M fitted emulators that determine the functional approximators of 
+#' V(k,x). Supports km, spline, and hetGP objects (anything supported by \code{ospPredict})
+#' @export
+#' @return a list containing:
+#' \itemize{
+#'  \item \code{payoff} (vector) is the resulting payoff NPV from t=0
+#'  \item \code{tau} (matrix) are the times when impulses were applied
+#'  \item \code{impulses} (matrix) impulse amounts matching tau
+#'  \item \code{paths} (matrix) forward trajectories of the controlled state process
+#'  \item \code{bnd} (vector) impulse target levels for the case of linear impulse costs
+#' }
+#' @details Should be used in conjuction with the \code{\link{osp.impulse.control}} function 
+#' that builds the emulators and calls  forward.impulse.policy internally.
 forward.impulse.policy <- function( x,M,fit,model)
 {
   curX <- model$sim.func( x,model,model$dt)
   payoff <- rep(0, nrow(curX))
-  tau <- rep(0, nrow(curX))
+  tau <- rep(NaN, nrow(curX))
   paths <- array(0, dim=c(nrow(curX),ncol(curX),M))
   paths[,,1] <- curX
   imps <- array(NaN, dim=c(nrow(curX),M))
   bnd <- rep(0,M)
+  #browser()
 
   i <- 1
   # main loop forward
   while (i < M) {
+     # continue
+      cont <- exp(-model$dt*model$r)*ospPredict(fit[[i]],curX,model)
     
-    if (is(fit[[i]],"smooth.spline") )
-        cont <- exp(-model$dt*model$r)*predict(fit[[i]],curX)$y # for use with  splines
-   
-      if (is(fit[[i]],"lm") ) {
-        lenn <- length(fit[[i]]$coefficients)
-        cont <-  fit[[i]]$coefficients[1] + model$bases(curX) %*%
-          fit[[i]]$coefficients[2:lenn]
-      }
-      impulse <- forest.impulse(curX,model,fit[[i]])
-      impNdx <- which(cont < impulse & curX > model$impulse.fixed.cost)
+     #if (is(fit[[i]],"smooth.spline") )
+      #  cont <- exp(-model$dt*model$r)*predict(fit[[i]],curX)$y # for use with  splines
+      
+      # immediate impulse
+      impulse <- model$impulse.func(curX,model,fit[[i]],ext=TRUE)
+      if (model$imp.type == "forest")
+         impNdx <- which(cont < impulse$payoff & curX > model$impulse.fixed.cost+impulse$imp.target)
+      if (model$imp.type == "exchrate")
+        impNdx <- which(cont < impulse$payoff & curX < impulse$imp.target)
+      if (model$imp.type == "capexp")
+        impNdx <- which(cont < impulse$payoff)
+      # carry out impulses where its preferred
       if (length(impNdx) > 0) {
          imps[impNdx,i] <- curX[impNdx]
-         bnd[i] <- min(curX[impNdx])
-         payoff[impNdx] <- payoff[impNdx] + exp(-model$r*model$dt*i)*pmax(curX[impNdx] - model$impulse.fixed.cost- model$impulse.target, 0)
-         curX[impNdx] <- model$impulse.target  # reset impulsed x
+         if (model$imp.type == "forest")  # boundary is the min
+           bnd[i] <- min(curX[impNdx])
+         if (model$imp.type == "exchrate")  # boundary is the max
+           bnd[i] <- max(curX[impNdx])
+         
+         if (model$imp.type == "capexp")
+           payoff[impNdx] <- payoff[impNdx] - exp(-model$r*model$dt*i)*model$imp.cost(curX[impNdx],
+                                                                                      impulse$imp.target[impNdx])
+         else
+             payoff[impNdx] <- payoff[impNdx] + exp(-model$r*model$dt*i)*(curX[impNdx] - model$impulse.fixed.cost- impulse$imp.target)
+         #if ( is.null(model$running.func) == FALSE)  # replace with running payoff from targetlevel
+        #   payoff[impNdx] <- payoff[impNdx] + exp(-model$r*model$dt*i)*
+         #    (model$running.func(impulse$imp.target)-model$running.func(curX[impNdx]))*model$dt
+         
+         curX[impNdx] <- impulse$imp.target  # reset impulsed x
          tau[impNdx] <- tau[impNdx] + 1
          
       }
+      # add running revenue based on curX
+      if ( is.null(model$running.func) == FALSE)
+        payoff <- payoff + exp(-model$r*model$dt*i)*model$running.func(curX)*model$dt
+      
+      
     
     i <- i+1
     
@@ -907,7 +1052,15 @@ forward.impulse.policy <- function( x,M,fit,model)
 
   }
   # terminal time
-  payoff <- payoff + exp(-model$r*model$dt*M)*pmax(curX - model$impulse.fixed.cost- model$impulse.target, 0)
+  if (model$imp.type== "forest")
+    payoff <- payoff + exp(-model$r*model$dt*M)*pmax(curX - model$impulse.fixed.cost- model$impulse.target, 0)
+  if (model$imp.type == "exchrate"){
+    gamma = 0.5
+    C_gamma = 1/(model$r - (model$r-model$div)*gamma + 0.5*gamma*(1-gamma)*model$sigma^2)
+    payoff <- payoff + C_gamma*model$running.func(curX)*exp(-model$r*model$dt*M)
+  }
+  if (model$imp.type == "capexp")
+    payoff <- payoff + model$running.func(curX)/(model$r-model$mu)*(exp(-model$r*model$dt*M))
   
   return( list(payoff=payoff,tau=tau,paths=paths,impulses=imps,bnd=bnd))
   # payoff is the resulting payoff NPV from t=0

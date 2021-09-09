@@ -230,3 +230,44 @@ sim.gbm.moving.ave <- function( x0, model, dt=model$dt)
   return (newX)
 }
 
+####################################
+#' Simulate 1D arithmetic Brownian Motion 
+#' @inheritParams sim.gbm
+#' @param model$drift for the drift term
+#' @export
+sim.bm <- function( x0, model, dt=model$dt)
+{
+  len <- nrow(x0)
+  
+  newX <- x0
+  for (j in 1:model$dim)
+    newX[,j] <- x0[,j,drop=F] + rnorm(len)*model$sigma[j]*sqrt(dt) +
+    model$drift*dt
+  
+  return (newX)
+}
+
+####################################
+#' Simulate 2D process for price and capacity
+#' @details first column is P_t price, second column is C_t capacity
+#' @inheritParams sim.gbm
+#' @param model$capSpoil models decay of existing capacity (default is 0)
+#' @export
+sim.price.and.capacity <- function( x0, model, dt=model$dt)
+{
+  len <- nrow(x0)
+  newX <- x0
+  if (is.null(model$capSpoil)) 
+    decay <- 0
+  else
+    decay <- model$capSpoil
+  
+  newX[,2] <- x0[,2]*exp(-decay*dt)
+  
+  newX[,1] <- x0[,1]*exp( (model$mu - 0.5*model$sigma^2)*dt + model$sigma*sqrt(dt)*rnorm(len))
+  
+  return (newX)
+}
+
+
+

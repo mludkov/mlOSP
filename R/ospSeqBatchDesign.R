@@ -172,19 +172,39 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
                       noise.var=all.X[1:k,model$dim+2]/model$batch.nrep,
                       control=list(trace=F), lower=model$min.lengthscale, covtype=model$kernel.family,
-                      nugget.estim= TRUE,
+                      #nugget.estim= TRUE,
                       coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var)
     }
     if (method == "trainkm") {
-      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[1:k,model$dim+1]),
-                      noise.var=all.X[1:k,model$dim+2]/model$batch.nrep, covtype=model$kernel.family,
+      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), 
+                      response=data.frame(y=all.X[1:k,model$dim+1]),
+                      nugget.estim=TRUE, #
+                      #noise.var=all.X[1:k,model$dim+2]/model$batch.nrep, 
+                      covtype=model$kernel.family,
                       control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale)
+      #if (coef(fits[[i]])$sd2 < 1e-10)
+      #  fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), 
+      #                               response=data.frame(y=all.X[1:k,model$dim+1]),
+      #                               nugget.estim=TRUE, #
+      #                               #noise.var=all.X[1:k,model$dim+2]/model$batch.nrep, 
+      #                               covtype=model$kernel.family,
+      #                               control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale)
+      
       theta.fit[i,k-model$init.size+1,] <- coef(fits[[i]])$range
     }
     if (method == "homtp") {
       fits[[i]] <- hetGP::mleHomTP(X=all.X[1:k,1:model$dim], Z=all.X[1:k,model$dim+1],
                                    lower=model$min.lengthscale,upper=model$max.lengthscale,
                                    covtype=model$kernel.family, noiseControl=list(nu_bounds=c(2.01,5)))
+      theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
+    }
+    if (method == "homgp") {
+      big.payoff <- model$payoff.func(big.grid,model)
+      hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
+      fits[[i]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
+                                   lower = model$min.lengthscale, upper = model$max.lengthscale, 
+                                   covtype=model$kernel.family)
+      
       theta.fit[i,k-model$init.size+1,] <- fits[[i]]$theta
     }
     if (method== "hetgp") {
@@ -205,6 +225,9 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
     k <- K0 + 1
     running_budget = model$batch.nrep*K0
     n <- K0 + 1
+    
+    if (i == 43)
+       browser()
 
     # active learning loop:
     # to do it longer for later points to minimize error build-up use: *(1 + i/M)
@@ -215,9 +238,10 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
         pred.cands <- predict(fits[[i]],data.frame(x=ei.cands), type="UK")
         cand.mean <- pred.cands$mean
         cand.sd <- pred.cands$sd
-        nug <- sqrt(mean(all.X[1:(k-1), model$dim+2]))
-        nug <- rep(nug, length(cand.mean))
-      } else {   # hetGP/homTP
+        nug <- sqrt(coef(fits[[i]])$nug) 
+        #nug <- sqrt(mean(all.X[1:(k-1), model$dim+2]))
+        nug <- rep(nug, length(cand.mean)) # noise.var=all.X[1:n,model$dim+2]/batch_matrix[1:n,i]
+      } else {   # hetGP/homTP/homGP
         pred.cands <- predict(x=ei.cands, object=fits[[i]])
         cand.mean <- pred.cands$mean
         cand.sd <- sqrt(pred.cands$sd2)
@@ -235,11 +259,11 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
       ddx <- laGP::distance( dX_1, dX_2)
       x.dens <- apply( exp(-ddx*dim(ei.cands)[1]*0.01), 2, sum)
       emp.loss[i,k-model$init.size] <- sum(losses*x.dens)/sum(x.dens)
-      if (is.null(model$el.thresh) == FALSE) { # stop if below the Emp Loss threshold
-        if (emp.loss[i,k-model$init.size] < model$el.thresh) {
-          add.more.sites <- FALSE
-        }
-      }
+      #if (is.null(model$el.thresh) == FALSE) { # stop if below the Emp Loss threshold
+      #  if (emp.loss[i,k-model$init.size] < model$el.thresh) {
+      #    add.more.sites <- FALSE
+      #  }
+      #}
 
       # use active learning measure to select new sites and associated replication
       if (model$ei.func == 'absur') {
@@ -282,7 +306,8 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
                                sdlog = model$sigma[1]*sqrt(i*model$dt) )
             jdim <- 2
             while (jdim <= model$dim) {
-              x.dens2 <- x.dens2*dlnorm( ei.cands[,jdim], meanlog=log(model$x0[jdim])+(model$r-model$div-0.5*model$sigma[jdim]^2)*i*model$dt,
+              x.dens2 <- x.dens2*dlnorm( ei.cands[,jdim], 
+                                         meanlog=log(model$x0[jdim])+(model$r-model$div-0.5*model$sigma[jdim]^2)*i*model$dt,
                                          sdlog = model$sigma[jdim]*sqrt(i*model$dt) )
               jdim <- jdim+1
             }
@@ -369,7 +394,9 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
         add.var[is.na(add.var)] <- 0.0000001
 
         y_new = (all.X[idx_diff, model$dim+1] * batch_matrix[idx_diff, i] + add.mean * r_seq_diff) / r_batch[idx_diff]
-        var_new = (all.X[idx_diff, model$dim+2] * (batch_matrix[idx_diff, i] - 1) + batch_matrix[idx_diff, i] * all.X[idx_diff, model$dim+1] ^ 2 + add.var * (r_seq_diff - 1) + r_seq_diff * add.mean ^ 2) / (batch_matrix[idx_diff, i] - 1)
+        var_new = (all.X[idx_diff, model$dim+2] * (batch_matrix[idx_diff, i] - 1) + 
+                     batch_matrix[idx_diff, i] * all.X[idx_diff, model$dim+1] ^ 2 +
+                     add.var * (r_seq_diff - 1) + r_seq_diff * add.mean ^ 2) / (batch_matrix[idx_diff, i] - 1)
         all.X[idx_diff, model$dim + 1] = y_new
         all.X[idx_diff, model$dim + 2] = var_new
         batch_matrix[1:(n - 1), i] = r_batch
@@ -378,33 +405,40 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
 
         if (k %in% update.kernel.iters) {
           if (method == "km")
-            fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n - 1, 1:model$dim]), response=data.frame(y=all.X[1:n - 1, model$dim+1]),
-                            noise.var=all.X[1:n - 1,model$dim+2]/batch_matrix[1:(n - 1), i], covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
+            fits[[i]] <- km(y~0, design=data.frame(x=all.X[1:n - 1, 1:model$dim]), 
+                            response=data.frame(y=all.X[1:n - 1, model$dim+1]),
+                            noise.var=all.X[1:n - 1,model$dim+2]/batch_matrix[1:(n - 1), i], 
+                            covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
                             coef.var=model$km.var, control=list(trace=F),
                             lower=model$min.lengthscale,upper=model$max.lengthscale)
           if (method == "trainkm") {
-            fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=all.X[1:n - 1, 1:model$dim]), response=data.frame(y=all.X[1:n - 1, model$dim+1]),
-                            noise.var=all.X[1:n - 1,model$dim+2]/batch_matrix[1:(n - 1), i], covtype=model$kernel.family, control=list(trace=F),
+            fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=all.X[1:n - 1, 1:model$dim]), 
+                            response=data.frame(y=all.X[1:n - 1, model$dim+1]),
+                            nugget.estim=TRUE, 
+                            #noise.var=all.X[1:n - 1,model$dim+2]/batch_matrix[1:(n - 1), i], 
+                            covtype=model$kernel.family, control=list(trace=F),
                             lower=model$min.lengthscale, upper=model$max.lengthscale)
             theta.fit[i,n-model$init.size+1,] <- coef(fits[[i]])$range
           }
-          if (method == "hetgp") {
+          if (method == "hetgp" | method == "homgp") {
             fits[[i]] <- update(object=fits[[i]], Xnew=newX, Znew=newY, method="mixed",
                                 lower = model$min.lengthscale, upper=model$max.lengthscale)
             theta.fit[i,n-model$init.size+1,] <- fits[[i]]$theta
           }
           if (method == "homtp") {
-            fits[[i]] <- hetGP::mleHomTP(X=all.X[1:n - 1, 1:model$dim], Z=all.X[1:n - 1, model$dim+1],noiseControl=list(nu_bounds=c(2.01,5)),
+            fits[[i]] <- hetGP::mleHomTP(X=all.X[1:n - 1, 1:model$dim], Z=all.X[1:n - 1, model$dim+1],
+                                         noiseControl=list(nu_bounds=c(2.01,5)),
                                   lower=model$min.lengthscale,upper=model$max.lengthscale, covtype=model$kernel.family)
             theta.fit[i,n-model$init.size+1,] <- fits[[i]]$theta
           }
         } else {
           if (method == "km" | method == "trainkm")
             fits[[i]] <- update(fits[[i]], newX=all.X[idx_diff, 1:model$dim, drop = F], newy=y_new,
-                                newnoise=var_new / r_batch, newX.alreadyExist=T, cov.re=F)
-          if (method == "hetgp")
+                                #newnoise=var_new / r_batch, 
+                                newX.alreadyExist=T, cov.re=F)
+          if (method == "hetgp" | method == "homgp")
             fits[[i]] <- update(object=fits[[i]], Xnew=newX, Znew=newY, maxit = 0, method = "quick")
-          if (method == "homtp")
+          if (method == "homtp" )
             fits[[i]] <- update(object=fits[[i]], Xnew=all.X[idx_diff, 1:model$dim, drop = F], Znew=y_new, maxit = 0)
         }
       } else { # add a new input
@@ -426,33 +460,43 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
 
         if (k %in% update.kernel.iters) {
           if (method == "km")
-            fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=all.X[1:n,1:model$dim]), response=data.frame(y=all.X[1:n,model$dim+1]),
-                            noise.var=all.X[1:n,model$dim+2]/batch_matrix[1:n,i], covtype=model$kernel.family, coef.trend=0, coef.cov=model$km.cov,
+            fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=all.X[1:n,1:model$dim]), 
+                                         response=data.frame(y=all.X[1:n,model$dim+1]),
+                            noise.var=all.X[1:n,model$dim+2]/batch_matrix[1:n,i], covtype=model$kernel.family, 
+                            coef.trend=0, coef.cov=model$km.cov,
                             coef.var=model$km.var, control=list(trace=F),
                             lower=model$min.lengthscale,upper=model$max.lengthscale)
           if (method == "trainkm") {
-            fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=all.X[1:n,1:model$dim]), response=data.frame(y=all.X[1:n,model$dim+1]),
-                            noise.var=all.X[1:n,model$dim+2]/batch_matrix[1:n,i], covtype=model$kernel.family, control=list(trace=F),
+            fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=all.X[1:n,1:model$dim]), 
+                                         response=data.frame(y=all.X[1:n,model$dim+1]),
+                            nugget.estim=TRUE,
+                            #noise.var=all.X[1:n,model$dim+2]/batch_matrix[1:n,i], 
+                            covtype=model$kernel.family, control=list(trace=F),
                             lower=model$min.lengthscale, upper=model$max.lengthscale)
             theta.fit[i,n-model$init.size+1,] <- coef(fits[[i]])$range
           }
-          if (method == "hetgp") {
-            fits[[i]] <- update(object=fits[[i]], Xnew=matrix(rep(add.grid[1,,drop=F], r_batch), nrow = r_batch, byrow = T), Znew=fsim$payoff-immPayoff,method="mixed",
+          if (method == "hetgp" | method == "homgp") {
+            fits[[i]] <- update(object=fits[[i]], Xnew=matrix(rep(add.grid[1,,drop=F], r_batch), nrow = r_batch, byrow = T), 
+                                Znew=fsim$payoff-immPayoff,method="mixed",
                                 lower = model$min.lengthscale, upper=model$max.lengthscale)
             theta.fit[i,n-model$init.size+1,] <- fits[[i]]$theta
           }
           if (method == "homtp") {
-            fits[[i]] <- hetGP::mleHomTP(X=all.X[1:n,1:model$dim], Z=all.X[1:n,model$dim+1],noiseControl=list(nu_bounds=c(2.01,5)),
+            fits[[i]] <- hetGP::mleHomTP(X=all.X[1:n,1:model$dim], Z=all.X[1:n,model$dim+1],
+                                         noiseControl=list(nu_bounds=c(2.01,5)),
                                   lower=model$min.lengthscale,upper=model$max.lengthscale, covtype=model$kernel.family)
             theta.fit[i,n-model$init.size+1,] <- fits[[i]]$theta
           }
+      
         } else {
           if (method == "km" | method == "trainkm")
             fits[[i]] <- update(fits[[i]], newX=add.grid[1,,drop=F], newy=add.mean,
-                                newnoise=add.var / r_batch,  cov.re=F)
-          if (method == "hetgp")
-            fits[[i]] <- update(object=fits[[i]], Xnew=matrix(rep(add.grid[1,,drop=F], r_batch), nrow = r_batch, byrow = T), Znew=fsim$payoff-immPayoff, maxit = 0, method = "quick")
-          if (method == "homtp")
+                                #newnoise=add.var / r_batch,  
+                                cov.re=F)
+          if (method == "hetgp" | method == "homgp")
+            fits[[i]] <- update(object=fits[[i]], Xnew=matrix(rep(add.grid[1,,drop=F], r_batch), nrow = r_batch, byrow = T), 
+                                Znew=fsim$payoff-immPayoff, maxit = 0, method = "quick")
+          if (method == "homtp" )
             fits[[i]] <- update(object=fits[[i]], Xnew=add.grid[1,,drop=F], Znew=add.mean, maxit = 0)
         }
 

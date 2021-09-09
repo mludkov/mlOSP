@@ -11,7 +11,8 @@ plt.2d.surf(
   show.var = FALSE,
   only.contour = FALSE,
   contour.col = "red",
-  bases = NULL
+  bases = NULL,
+  strike = 0
 )
 }
 \arguments{
