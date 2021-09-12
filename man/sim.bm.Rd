@@ -13,6 +13,8 @@ sim.bm(x0, model, dt = model$dt)
 interest rate \code{model$r} and continuous dividend yield \code{model$div}.}
 
 \item{dt}{is the step size in time. Defaults to \code{model$dt}}
+
+\item{model$drift}{for the drift term}
 }
 \description{
 Simulate 1D arithmetic Brownian Motion

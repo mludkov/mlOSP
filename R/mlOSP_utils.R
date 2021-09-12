@@ -886,7 +886,7 @@ forest.impulse <- function(cur_x, model, fit, ext=FALSE)
   
   if (ext == TRUE)
     return( list(payoff=payoff + next_step_value*exp(-model$dt*model$r),
-                 imp.target=model$impulse.target,imp.value = next_step_value) )
+                 imp.target=rep(model$impulse.target,length(cur_x)),imp.value = next_step_value) )
   else
     return (payoff + next_step_value*exp(-model$dt*model$r))
   
@@ -926,7 +926,7 @@ lin.impulse <- function(cur_x, model, fit, ext=FALSE)
   
   if (ext == TRUE)
      return( list(payoff=payoff + next_step_value*exp(-model$dt*model$r),
-               imp.target=imp.target,imp.value = next_step_value) )
+               imp.target=rep(imp.target,length(cur_x)),imp.value = next_step_value) )
   else
      return (payoff + next_step_value*exp(-model$dt*model$r))
 }
@@ -954,7 +954,7 @@ capexp.impulse <- function(cur_x, model, fit, ext=FALSE)
                                exp(-model$dt*model$r)-
                                model$imp.cost.capexp(cur_x[i,2],z))
     # restrict to optimizing within the range of input capacities
-    optimizer <- optimize(intervene, c(cur_x[i,2],max(cur_x[,2])),maximum=TRUE)
+    optimizer <- optimize(intervene, c(cur_x[i,2],max(cur_x[,2])+1),maximum=TRUE)
     imp.target[i] <- optimizer$maximum
     payoff[i] <- optimizer$objective #model$imp.cost.capexp(cur_x[i,2],imp.target[i])   
   }
@@ -983,12 +983,12 @@ capexp.impulse <- function(cur_x, model, fit, ext=FALSE)
 #' @return a list containing:
 #' \itemize{
 #'  \item \code{payoff} (vector) is the resulting payoff NPV from t=0
-#'  \item \code{tau} (matrix) are the times when impulses were applied
+#'  \item \code{tau} (vector) number of times impulses were applied on each path
 #'  \item \code{impulses} (matrix) impulse amounts matching tau
-#'  \item \code{paths} (matrix) forward trajectories of the controlled state process
+#'  \item \code{paths} ((d+2)-tensor) forward trajectories of the controlled state process
 #'  \item \code{bnd} (vector) impulse target levels for the case of linear impulse costs
 #' }
-#' @details Should be used in conjuction with the \code{\link{osp.impulse.control}} function 
+#' @details Should be used in conjunction with the \code{\link{osp.impulse.control}} function 
 #' that builds the emulators and calls  forward.impulse.policy internally.
 forward.impulse.policy <- function( x,M,fit,model)
 {
@@ -1030,12 +1030,16 @@ forward.impulse.policy <- function( x,M,fit,model)
            payoff[impNdx] <- payoff[impNdx] - exp(-model$r*model$dt*i)*model$imp.cost(curX[impNdx],
                                                                                       impulse$imp.target[impNdx])
          else
-             payoff[impNdx] <- payoff[impNdx] + exp(-model$r*model$dt*i)*(curX[impNdx] - model$impulse.fixed.cost- impulse$imp.target)
+             payoff[impNdx] <- payoff[impNdx] + exp(-model$r*model$dt*i)*(curX[impNdx] -
+                                                                            model$impulse.fixed.cost- impulse$imp.target[impNdx])
          #if ( is.null(model$running.func) == FALSE)  # replace with running payoff from targetlevel
         #   payoff[impNdx] <- payoff[impNdx] + exp(-model$r*model$dt*i)*
          #    (model$running.func(impulse$imp.target)-model$running.func(curX[impNdx]))*model$dt
          
-         curX[impNdx] <- impulse$imp.target  # reset impulsed x
+         if (model$dim==1)
+           curX[impNdx] <- impulse$imp.target[impNdx]  # reset impulsed x
+         else
+           curX[impNdx,2] <- impulse$imp.target[impNdx]  # affects the inventory, not the price
          tau[impNdx] <- tau[impNdx] + 1
          
       }
@@ -1055,8 +1059,8 @@ forward.impulse.policy <- function( x,M,fit,model)
   if (model$imp.type== "forest")
     payoff <- payoff + exp(-model$r*model$dt*M)*pmax(curX - model$impulse.fixed.cost- model$impulse.target, 0)
   if (model$imp.type == "exchrate"){
-    gamma = 0.5
-    C_gamma = 1/(model$r - (model$r-model$div)*gamma + 0.5*gamma*(1-gamma)*model$sigma^2)
+    #gamma = 0.5
+    C_gamma = 1/(model$r - (model$r-model$div)*model$gamma + 0.5*model$gamma*(1-model$gamma)*model$sigma^2)
     payoff <- payoff + C_gamma*model$running.func(curX)*exp(-model$r*model$dt*M)
   }
   if (model$imp.type == "capexp")

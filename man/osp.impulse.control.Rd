@@ -4,7 +4,7 @@
 \alias{osp.impulse.control}
 \title{LS-flavor RMC algorithm with a variety of regression methods for stochastic impulse control}
 \usage{
-osp.impulse.control(model, input.domain = NULL, method = "spline")
+osp.impulse.control(model, input.domain = NULL, method = "spline", verb = 101)
 }
 \arguments{
 \item{model}{a list defining the simulator and reward model, with the two main model hooks being 

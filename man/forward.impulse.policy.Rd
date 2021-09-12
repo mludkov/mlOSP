@@ -25,9 +25,9 @@ to consider), \code{model$sim.func} for simulating each step with time step
 a list containing:
 \itemize{
  \item \code{payoff} (vector) is the resulting payoff NPV from t=0
- \item \code{tau} (matrix) are the times when impulses were applied
+ \item \code{tau} (vector) number of times impulses were applied on each path
  \item \code{impulses} (matrix) impulse amounts matching tau
- \item \code{paths} (matrix) forward trajectories of the controlled state process
+ \item \code{paths} ((d+2)-tensor) forward trajectories of the controlled state process
  \item \code{bnd} (vector) impulse target levels for the case of linear impulse costs
 }
 }
@@ -35,6 +35,6 @@ a list containing:
 Simulate a payoff of an impulse strategy along a set of forward paths
 }
 \details{
-Should be used in conjuction with the \code{\link{osp.impulse.control}} function 
+Should be used in conjunction with the \code{\link{osp.impulse.control}} function 
 that builds the emulators and calls  forward.impulse.policy internally.
 }

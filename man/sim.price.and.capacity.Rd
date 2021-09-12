@@ -13,6 +13,8 @@ sim.price.and.capacity(x0, model, dt = model$dt)
 interest rate \code{model$r} and continuous dividend yield \code{model$div}.}
 
 \item{dt}{is the step size in time. Defaults to \code{model$dt}}
+
+\item{model$capSpoil}{models decay of existing capacity (default is 0)}
 }
 \description{
 Simulate 2D process for price and capacity

@@ -1040,7 +1040,7 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
 #' belSolve <- osp.impulse.control(modelBelak, input.domain = seq(-0.5,2.5,by=0.005),method="spline")
 ###############################
 
-osp.impulse.control <- function(model,input.domain=NULL, method ="spline")
+osp.impulse.control <- function(model,input.domain=NULL, method ="spline",verb=101)
 {
   M <- model$T/model$dt
   t.start <- Sys.time()
@@ -1149,7 +1149,7 @@ osp.impulse.control <- function(model,input.domain=NULL, method ="spline")
     }
     
     all.X[,1:model$dim] <- init.grid  # use the first dim+1 columns for the batched GP regression.
-    if (i %% 10 == 0)
+    if (i %% verb == 0)
       browser()
     
     # create the km object
