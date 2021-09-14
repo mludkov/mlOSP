@@ -1026,7 +1026,7 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
 #'  Also needs \code{model$dt} and \code{model$r} for discounting. 
 #'  
 #'  Calls \code{model$sim.func} to generate forward paths. Use in conjunction with
-#'  \code{\link{forward.sim.impulse}} 
+#'  \code{\link{forward.impulse.policy}} 
 #'  
 #' @author 
 #' Mike Ludkovski
@@ -1040,7 +1040,7 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
 #' belSolve <- osp.impulse.control(modelBelak, input.domain = seq(-0.5,2.5,by=0.005),method="spline")
 ###############################
 
-osp.impulse.control <- function(model,input.domain=NULL, method ="spline",verb=101)
+osp.impulse.control <- function(model,input.domain=NULL, method ="spline",verb=101, mpc=FALSE)
 {
   M <- model$T/model$dt
   t.start <- Sys.time()
@@ -1134,7 +1134,7 @@ osp.impulse.control <- function(model,input.domain=NULL, method ="spline",verb=1
     # construct replicated design
     big.grid <- matrix(rep(t(init.grid), n.reps), ncol = ncol(init.grid), byrow = TRUE)
     
-    fsim <- forward.impulse.policy( big.grid, M-i,fits[(i+1):M],model)
+    fsim <- forward.impulse.policy( big.grid, M-i,fits[(i+1):M],model, mpc=mpc)
     fsim <- pmax( fsim$payoff, 0)
     
     #if (i < (M-1))

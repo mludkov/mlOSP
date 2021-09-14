@@ -744,6 +744,7 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=
 
 
 ###########
+
 ospPredict <- function(myFit,myx,model)
 {
   if (is(myFit,"earth") ) {
@@ -909,16 +910,20 @@ forest.impulse <- function(cur_x, model, fit, ext=FALSE)
 #' @export
 lin.impulse <- function(cur_x, model, fit, ext=FALSE)
 {
-  linCost <- 1; dz <- 0.1
-  zx <- seq(40,60,by=dz); len.zx <- length(zx)-1
-  imp_value <- diff(ospPredict(fit, zx,model))/dz
-  imp_value_p1 <- imp_value[2:len.zx]
-  bn <- which((imp_value[1:(len.zx-1)]-linCost)*(imp_value_p1-linCost) <0 )
-  if ( (imp_value[1]-linCost)*(imp_value[len.zx]-linCost) < 0)
-    imp.target <- uniroot(function(x)(diff(ospPredict(fit,c(x-0.005,x+0.005),model))*100*exp(-model$dt*model$r)-linCost),
-                           lower=40,upper=60)$root
-  else if (length(bn) > 0)
-     imp.target <- max(zx[bn])+dz/2
+  linCost <- model$imp.cost.linear; dz <- 0.1
+  if (is.null(model$imp.target.range))
+    model$imp.target.range = c(40,60)
+  #zx <- seq(40,60,by=dz); len.zx <- length(zx)-1
+  #imp_value <- diff(ospPredict(fit, zx,model))/dz
+  #imp_value_p1 <- imp_value[2:len.zx]
+  #bn <- which((imp_value[1:(len.zx-1)]-linCost)*(imp_value_p1-linCost) <0 )
+  imp_value <- ospPredict(fit, c(model$imp.target.range[1]-0.005,model$imp.target.range[1]+0.005,
+                                 model$imp.target.range[2]-0.005,model$imp.target.range[2]+0.005), model)
+  if ( ( (imp_value[2]-imp_value[1])*100-linCost)*( (imp_value[4]-imp_value[3])*100-linCost) < 0)
+    imp.target <- uniroot(function(x)(diff(ospPredict(fit,c(x-0.005,x+0.005),model))*100-linCost),
+                           lower=model$imp.target.range[1],upper=model$imp.target.range[2])$root
+  #else if (length(bn) > 0)
+  #   imp.target <- max(zx[bn])+dz/2
   else
      imp.target = model$impulse.target
   payoff <- ( cur_x - model$impulse.fixed.cost - imp.target)
@@ -990,7 +995,7 @@ capexp.impulse <- function(cur_x, model, fit, ext=FALSE)
 #' }
 #' @details Should be used in conjunction with the \code{\link{osp.impulse.control}} function 
 #' that builds the emulators and calls  forward.impulse.policy internally.
-forward.impulse.policy <- function( x,M,fit,model)
+forward.impulse.policy <- function( x,M,fit,model, mpc=FALSE)
 {
   curX <- model$sim.func( x,model,model$dt)
   payoff <- rep(0, nrow(curX))
@@ -999,19 +1004,22 @@ forward.impulse.policy <- function( x,M,fit,model)
   paths[,,1] <- curX
   imps <- array(NaN, dim=c(nrow(curX),M))
   bnd <- rep(0,M)
-  #browser()
+ 
+  # running payoff from the first step
+  if ( is.null(model$running.func) == FALSE)
+    payoff <- payoff + model$running.func(x)*model$dt
 
   i <- 1
   # main loop forward
   while (i < M) {
-     # continue
-      cont <- exp(-model$dt*model$r)*ospPredict(fit[[i]],curX,model)
+     curI <- i
+     if (mpc == TRUE)
+        curI <- 1
+     # continue/do nothing
+     cont <- exp(-model$dt*model$r)*ospPredict(fit[[curI]],curX,model)
     
-     #if (is(fit[[i]],"smooth.spline") )
-      #  cont <- exp(-model$dt*model$r)*predict(fit[[i]],curX)$y # for use with  splines
-      
       # immediate impulse
-      impulse <- model$impulse.func(curX,model,fit[[i]],ext=TRUE)
+      impulse <- model$impulse.func(curX,model,fit[[curI]],ext=TRUE)
       if (model$imp.type == "forest")
          impNdx <- which(cont < impulse$payoff & curX > model$impulse.fixed.cost+impulse$imp.target)
       if (model$imp.type == "exchrate")
@@ -1040,7 +1048,7 @@ forward.impulse.policy <- function( x,M,fit,model)
            curX[impNdx] <- impulse$imp.target[impNdx]  # reset impulsed x
          else
            curX[impNdx,2] <- impulse$imp.target[impNdx]  # affects the inventory, not the price
-         tau[impNdx] <- tau[impNdx] + 1
+         tau[impNdx] <- tau[impNdx] + 1  # count number of impulses
          
       }
       # add running revenue based on curX
