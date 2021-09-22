@@ -4,7 +4,7 @@
 \alias{forward.impulse.policy}
 \title{Simulate a payoff of an impulse strategy along a set of forward paths}
 \usage{
-forward.impulse.policy(x, M, fit, model)
+forward.impulse.policy(x, M, fit, model, mpc = FALSE)
 }
 \arguments{
 \item{x}{is a matrix of starting values

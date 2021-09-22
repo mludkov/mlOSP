@@ -1121,6 +1121,11 @@ osp.impulse.control <- function(model,input.domain=NULL, method ="spline",verb=1
         
       }
     }
+    else if (length(input.domain) == M){
+      init.grid <- matrix(input.domain[[M]],nrow=length(input.domain[[M]])/model$dim)
+      design.size[i] <- nrow(init.grid)
+      
+    }
     else  {   # fixed pre-specified design
       init.grid <- matrix(input.domain,nrow=length(input.domain)/model$dim)
       design.size[i] <- nrow(init.grid)
@@ -1213,6 +1218,8 @@ osp.impulse.control <- function(model,input.domain=NULL, method ="spline",verb=1
     }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
       fits[[i]] <- stats::smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
+    else if (model$dim == 1 & method=="cvspline")  # only possible in 1D
+      fits[[i]] <- stats::smooth.spline(x=init.grid,y=all.X[,2])
     else if (method == "rvm") {
       if (is.null(model$rvm.kernel))
         rvmk <- "rbfdot"

@@ -744,7 +744,14 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=
 
 
 ###########
-
+#' Evaluate the \code{fit} emulator at input \code{myx}
+#' @title Forward simulation of a swing payoff based on a sequence of emulators
+#' @param myx     inputs to predict at
+#' @param myFit   fitted emulators of any type supported by osp.prob.design
+#' @param model List containing all model parameters. 
+#' @export
+#' @return prediction of myFit evaluated at myx
+#' @details Generally internal to other mlOSP functions
 ospPredict <- function(myFit,myx,model)
 {
   if (is(myFit,"earth") ) {

@@ -4,7 +4,13 @@
 \alias{osp.impulse.control}
 \title{LS-flavor RMC algorithm with a variety of regression methods for stochastic impulse control}
 \usage{
-osp.impulse.control(model, input.domain = NULL, method = "spline", verb = 101)
+osp.impulse.control(
+  model,
+  input.domain = NULL,
+  method = "spline",
+  verb = 101,
+  mpc = FALSE
+)
 }
 \arguments{
 \item{model}{a list defining the simulator and reward model, with the two main model hooks being 
@@ -42,7 +48,7 @@ Works with a design specified by the user
  Also needs \code{model$dt} and \code{model$r} for discounting. 
  
  Calls \code{model$sim.func} to generate forward paths. Use in conjunction with
- \code{\link{forward.sim.impulse}}
+ \code{\link{forward.impulse.policy}}
 }
 \examples{
 set.seed(1)
