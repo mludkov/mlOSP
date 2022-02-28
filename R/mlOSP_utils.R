@@ -84,10 +84,21 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
         rule <-  predict(fit[[i+1-offset]], new=curX[contNdx[in.the.money],,drop=F])
       if (class(fit[[i+1-offset]]) == "npregression")
         rule <- predict(fit[[i+1-offset]], new=curX[contNdx[in.the.money],,drop=F])
+      if(class(fit[[i+1-offset]]) == "agp") {
+        # shift the inputs
+        newX <- shift_scale(list(X=as.matrix(curX[contNdx[in.the.money],,drop=F])), 
+                      shift=fit[[i+1-offset]]$scale$xshift, scale=fit[[i+1-offset]]$scale$xscale)$X
+        
+        out <- aGP(XX=newX, X=fit[[i+1-offset]]$Xsc, Z=fit[[i+1-offset]]$Ysc, 
+                    g=NULL,end=model$lagp.end,method=model$lagp.type,d=fit[[i+1-offset]]$d,
+                   omp.threads=model$ligp.cores,verb=0,Xi.ret=FALSE)
+        # unshift the output
+        rule <- out$mean*fit[[i+1-offset]]$scale$yscale + fit[[i+1-offset]]$scale$yshift
+        
+      }
       if(class(fit[[i+1-offset]]) == "ligp") {
         newX <- shift_scale(list(X=as.matrix(curX[contNdx[in.the.money],,drop=F])), 
-        #                   #list(sigma_vec = matrix(sigma_vec, nrow=1)),
-                           shift=fit[[i+1-offset]]$scale$xshift, scale=fit[[i+1-offset]]$scale$xscale)$X
+                  shift=fit[[i+1-offset]]$scale$xshift, scale=fit[[i+1-offset]]$scale$xscale)$X
         
         #Xmt <- scale_ipTemplate(Xsc, model$ligp.n, space_fill_design=lhs_design, method='chr')$Xm.t
         out <- liGP(XX=newX, X=fit[[i+1-offset]]$Xsc, Y=fit[[i+1-offset]]$Ysc, 

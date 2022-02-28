@@ -491,6 +491,32 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       fits[[i]] <- hetGP::mleHomGP(X = list(X0=hetData$X0, Z0=hetData$Z0,mult=hetData$mult), Z= hetData$Z,
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, covtype=model$kernel.family)
     }
+    if (method == "lagp") { # approximate GP
+      if (is.null(model$lagp.type))
+        lagp.type <- "alcray"
+      else
+        lagp.type <- model$lagp.type
+      if (is.null(model$lagp.end))
+        lagp.end <- 50
+      else
+        lagp.end <- model$lagp.end
+      
+      big.payoff <- model$payoff.func(big.grid,model)
+      hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
+      # normalize before running laGP
+      scale_list <- find_shift_scale_stats(hetData$X0, hetData$Z0)
+      # initial guess for lengthscale; do not estimate the nugget
+      startd <- darg(NULL, shift_scale(list(X=init.grid), 
+                                  shift=scale_list$xshift, scale=scale_list$xscale)$X)
+      startd$start <- 1
+     
+      Ysc <- (fsim$payoff-big.payoff-scale_list$yshift)/scale_list$yscale
+      Xsc <- shift_scale(list(X=big.grid), 
+                           shift=scale_list$xshift, scale=scale_list$xscale)$X
+      fits[[i]] <- list(Xsc=Xsc, Ysc=Ysc, scale=scale_list, d=startd)
+      class(fits[[i]]) <- "agp"
+    }
+    
     else if (method == "ligp") {  # local inducing point Gaussian Process via the ligp library
       big.payoff <- model$payoff.func(big.grid,model)
       hetData <- hetGP::find_reps(big.grid, fsim$payoff-big.payoff)
