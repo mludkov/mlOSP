@@ -591,8 +591,9 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' }
 #' @param method regression method to use (defaults to \code{km})
 #' \itemize{
-#' \item km: [(default] Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km}.
-#' Requires \code{km.cov} (vector of lengthscales) and \code{km.var} (scalar process variance)  
+#' \item km: [(default] Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} 
+#' via \code{km}. Requires \code{km.cov} (vector of lengthscales)
+#' and \code{km.var} (scalar process variance)  
 #' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}. 
 #' Requires to specify kernel family via \code{kernel.family}
 #' \item mlegp Local GP from \pkg{laGP} (uses Gaussian squared exponential kernel)
@@ -600,10 +601,13 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' Requires to specify kernel family via \code{kernel.family}
 #' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
 #' Requires to specify kernel family via \code{kernel.family}
-#' \item spline: Smoothing Splines, use \code{smooth.spline} with the \code{nk} number of knots (1D only)
+#' \item spline: Smoothing Splines, use \code{smooth.spline} from \pkg{base}  
+#' with the user-specified \code{nk} number of knots (1D only)
+#' \item cvspline: \code{smooth.spline} from \pkg{base} with automatically chosen 
+#'  (via cross-validation) degrees of freedom/number of knots. Only works \emph{in 1D}
 #' \item loess: Local polynomial regression: use \code{loess} with \code{lo.span} parameter
 #' \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
-#' \item lm: linear model from \pkg{stats}
+#' \item lm: linear model from \pkg{stats} using \code{model$bases}
 #' }
 #' @param inTheMoney.thresh which paths are kept, out-of-the-money is dropped.
 #' Defines threshold in terms of \code{model$payoff.func}
@@ -766,8 +770,14 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
                                    lower = model$min.lengthscale, upper = model$max.lengthscale, 
                                    covtype=model$kernel.family)
     }
+    else if (method =="lm") {  # Linear regression with specified basis functions
+      matb <- model$bases(init.grid)
+      fits[[i,kk]] <- stats::lm(all.X[,model$dim+1] ~ matb)
+    }
     else if (model$dim == 1 & method=="spline")  # only possible in 1D
       fits[[i,kk]] <- smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
+    else if (model$dim == 1 & method=="cvspline")  # only possible in 1D
+      fits[[i,kk]] <- smooth.spline(x=init.grid,y=all.X[,2])  # cross-validated DF
     else if (method == "rvm") {
       if (is.null(model$rvm.kernel))
         rvmk <- "rbfdot"
@@ -815,6 +825,8 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
 #' @param method a string specifying regression method to use
 #' \itemize{
 #'  \item spline: \code{smooth.spline} from \pkg{base} which only works \emph{in 1D}
+#'  \item cvspline: \code{smooth.spline} from \pkg{base} with automatically chosen 
+#'  (via cross-validation) degrees of freedom/number of knots. Only works \emph{in 1D}
 #'  \item randomforest: (from \pkg{randomForest} package) requires \code{rf.maxnode}
 #'  and \code{rf.ntree} (number of trees) model parameters
 #'  \item loess: only works in \emph{1D or 2D}, requires \code{lo.span} model parameter
@@ -903,6 +915,10 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
     if (method == "spline" & ncol(grids[[i]]) == 1) { # only works in 1D
       all.models[[i]] <- stats::smooth.spline( x=grids[[i]],y=yVal,
                                         nknots = model$nk)
+      timingValue <- predict(all.models[[i]],grids[[i]])$y
+    }
+    if (method == "cvspline" & ncol(grids[[i]]) == 1) { # only works in 1D
+      all.models[[i]] <- stats::smooth.spline( x=grids[[i]],y=yVal)  # cross-validate DF
       timingValue <- predict(all.models[[i]],grids[[i]])$y
     }
     

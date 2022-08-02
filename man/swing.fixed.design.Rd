@@ -26,8 +26,9 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 
 \item{method}{regression method to use (defaults to \code{km})
 \itemize{
-\item km: [(default] Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km}.
-Requires \code{km.cov} (vector of lengthscales) and \code{km.var} (scalar process variance)  
+\item km: [(default] Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} 
+via \code{km}. Requires \code{km.cov} (vector of lengthscales)
+and \code{km.var} (scalar process variance)  
 \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}. 
 Requires to specify kernel family via \code{kernel.family}
 \item mlegp Local GP from \pkg{laGP} (uses Gaussian squared exponential kernel)
@@ -35,10 +36,13 @@ Requires to specify kernel family via \code{kernel.family}
 Requires to specify kernel family via \code{kernel.family}
 \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
 Requires to specify kernel family via \code{kernel.family}
-\item spline: Smoothing Splines, use \code{smooth.spline} with the \code{nk} number of knots (1D only)
+\item spline: Smoothing Splines, use \code{smooth.spline} from \pkg{base}  
+with the user-specified \code{nk} number of knots (1D only)
+\item cvspline: \code{smooth.spline} from \pkg{base} with automatically chosen 
+ (via cross-validation) degrees of freedom/number of knots. Only works \emph{in 1D}
 \item loess: Local polynomial regression: use \code{loess} with \code{lo.span} parameter
 \item rvm: Relevance Vector Machine: use \pkg{kernlab} with \code{rvm}
-\item lm: linear model from \pkg{stats}
+\item lm: linear model from \pkg{stats} using \code{model$bases}
 }}
 
 \item{inTheMoney.thresh}{which paths are kept, out-of-the-money is dropped.

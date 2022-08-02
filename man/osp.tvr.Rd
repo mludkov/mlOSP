@@ -22,6 +22,8 @@ By default everything is in-sample.}
 \item{method}{a string specifying regression method to use
 \itemize{
  \item spline: \code{smooth.spline} from \pkg{base} which only works \emph{in 1D}
+ \item cvspline: \code{smooth.spline} from \pkg{base} with automatically chosen 
+ (via cross-validation) degrees of freedom/number of knots. Only works \emph{in 1D}
  \item randomforest: (from \pkg{randomForest} package) requires \code{rf.maxnode}
  and \code{rf.ntree} (number of trees) model parameters
  \item loess: only works in \emph{1D or 2D}, requires \code{lo.span} model parameter

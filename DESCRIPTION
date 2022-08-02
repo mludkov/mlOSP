@@ -29,7 +29,5 @@ Suggests:
     deepnet,
     pander
 VignetteBuilder: knitr, rmarkdown
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Date/Publication: 2020-11-30 18:10:03 UTC
-
-  
