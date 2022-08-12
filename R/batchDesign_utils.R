@@ -394,7 +394,7 @@ plot_style <- function(base_size = 14, base_family = "Helvetica",...) {
           legend.key = element_blank(),
           legend.title = element_blank(),
           legend.background = element_blank(),
-          legend.margin = margin(c(2, 2, 2, 0)),
+          legend.margin = margin(t = 2, r = 2, b = 2, l = 0),
           legend.key.width = unit(0.35,"cm"),
           legend.key.height = unit(0.7,"cm"), 
           axis.text.x = element_text( colour = 'black', size = 10, hjust = 0.5, vjust = 0.5),

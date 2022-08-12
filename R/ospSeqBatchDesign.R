@@ -75,6 +75,8 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
   if (is.null(model$batch.heuristic)) {
     model$batch.heuristic <- 'fb'
   }
+  if (is.null(model$cand.len))
+    model$cand.len <- 500*model$dim
 
   # parameters in absur
   if (is.null(model$total.budget)) {
