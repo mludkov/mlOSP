@@ -636,7 +636,7 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=
   payoff <- array(0, dim=c(nrow(curX), n.swing) )
   tau <- array(0, dim=c(nrow(curX), n.swing) )
   refract <- rep(0, nrow(curX))
-  refractN <- model$refract/model$dt
+  refractN <- as.integer(round(model$refract/model$dt))
 
   i <- 1
   if (n.swing <= 0)
@@ -707,14 +707,6 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=
         
       }
       
-      #if (i < M-refractPeriod) {
-      #  delayedFit <- fitVplusDelta[[min(M, i+1+refractN-offset),kk]]
-      #  refractPayoff <- ospPredict(delayedFit, myx, model)
-      #}
-      #else 
-      #  refractPayoff <- 0
-      
-      #imm  <- exp(-(i)*model$dt*model$r)*model$swing.payoff(myx , model) + refractPayoff
       imm <- exp(-(i)*model$dt*model$r)*model$swing.payoff(myx , model) 
       
       # exercise if rule < 0 and no refraction left
@@ -748,7 +740,6 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=
 
   return( list(payoff=payoff,sims=nsim,tau=tau,totPayoff = totPayoff))
   # payoff is the resulting payoff NPV from t=0
-  # fvalue[i] is a list of resulting payoffs (on paths still not stopped) NPV from t=i
   # tau are the times when stopped
   # sims is a list; sims[[i]] are the forward x-values of paths at t=i (those not stopped yet)
 }

@@ -74,7 +74,7 @@
 #------------
 osp.prob.design <- function(N,model,subset=1:N,method="lm")
 {
-  M <- model$T/model$dt
+  M <- as.integer(round(model$T/model$dt))
   grids <- list()
   all.models <- list()
   if (is.null(subset))
@@ -348,7 +348,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #  kmSolve <- osp.fixed.design(model2d, input.dom=0.02,method="trainkm")
 osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0, stop.freq=model$dt)
 {
-  M <- model$T/model$dt
+  M <- as.integer(round(model$T/model$dt))
   t.start <- Sys.time()
   
   if ( is.null(model$stop.times))
@@ -638,7 +638,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 #' spl.swing <- swing.fixed.design(swingModel,input.domain=0.03, method ="spline")
 swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0)
 {
-  M <- model$T/model$dt
+  M <- as.integer(round(model$T/model$dt))
   t.start <- Sys.time()
   refractN <- model$refract/model$dt
   
