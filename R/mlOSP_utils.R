@@ -82,8 +82,9 @@ forward.sim.policy <- function( x,M,fit,model,offset=1,compact=TRUE,use.qv=FALSE
         rule <- predict(x=curX[contNdx[in.the.money],,drop=F], object=fit[[i+1-offset]])$mean
       if( class(fit[[i+1-offset]])=="rvm")
         rule <-  predict(fit[[i+1-offset]], new=curX[contNdx[in.the.money],,drop=F])
-      if (class(fit[[i+1-offset]]) == "npregression")
-        rule <- predict(fit[[i+1-offset]], new=curX[contNdx[in.the.money],,drop=F])
+      if (class(fit[[i+1-offset]]) == "rbandwidth") {
+        rule <- fitted(npreg(bws=fit[[i+1-offset]], exdat=curX[contNdx[in.the.money],,drop=F]))
+      }
       if(class(fit[[i+1-offset]]) == "agp") {
         # shift the inputs
         newX <- shift_scale(list(X=as.matrix(curX[contNdx[in.the.money],,drop=F])), 
@@ -217,8 +218,8 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),
     obj <- sqrt(predict(x=cbind(gr$x,gr$y), object=fit)$sd2)
   if( class(fit)=="rvm")
     obj <-  predict(fit, new=cbind(gr$x,gr$y))
-  if (class(fit) == "npregression")
-    obj <- predict(fit,exdat=cbind(gr$x,gr$y))
+  if (class(fit) == "rbandwidth")
+    obj <- fitted(npreg(bws=fit,exdat=cbind(gr$x,gr$y)))
   if (class(fit)== "ligprep") {
     newX <- shift_scale(list(X=as.matrix(cbind(gr$x, gr$y))), 
                         shift=fit$scale$xshift, scale=fit$scale$xscale)$X
@@ -545,8 +546,8 @@ policy.payoff <- function( x,M,fit,model,offset=1,path.dt=model$dt,use.qv=FALSE,
         rule <- predict(x=curX[contNdx[in.the.money],,drop=F], object=fit[[fit.ndx]])$mean
       if( class(fit[[fit.ndx]])=="rvm")
         rule <-  predict(fit[[fit.ndx]], new=curX[contNdx[in.the.money],,drop=F])
-      if (class(fit[[fit.ndx]]) == "npregression")
-        rule <- predict(fit[[fit.ndx]], new=curX[contNdx[in.the.money],,drop=F])
+      if (class(fit[[fit.ndx]]) == "rbandwidth")
+        rule <- fitted(npreg(bws=fit[[fit.ndx]], exdat=curX[contNdx[in.the.money],,drop=F]))
       
       if (use.qv == TRUE & i== M) {
         payoff[contNdx] = payoffCont[contNdx] + rule  # continuation value of paths that didn't stop yet)
@@ -702,8 +703,8 @@ swing.policy <- function( x,M,fit,model,offset=1,use.qv=FALSE,n.swing=1,verbose=
         rule <-  predict(myFit, new=myx)
         
       }
-      if (class(myFit) == "npregression") {
-        rule <- predict(myFit, new=myx)
+      if (class(myFit) == "rbandwidth") {
+        rule <- fitted(npreg(bws=myFit, exdat=myx))
         
       }
       
@@ -791,8 +792,8 @@ ospPredict <- function(myFit,myx,model)
   if( class(myFit)=="rvm") {
     prediction <-  predict(myFit, new=myx)
   }
-  if (class(myFit) == "npregression") {
-    prediction <- predict(myFit, new=myx)
+  if (class(myFit) == "rbandwidth") {
+    prediction <- fitted(npreg(bws=myFit, exdat=myx))
   }
   
   return( prediction)

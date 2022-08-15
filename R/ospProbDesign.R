@@ -245,9 +245,9 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
         else
           kerorder <- model$np.kerorder
 
-        all.models[[i]] <- np::npreg(txdat = grids[[i]][c.train,,drop=F], tydat = yVal,
+        all.models[[i]] <- np::npregbw(xdat = grids[[i]][c.train,,drop=F], ydat = yVal,
                            regtype=regtype, ckertype=kertype,ckerorder=kerorder)
-        timingValue <- predict(all.models[[i]],new=grids[[i]])
+        timingValue <- fitted(npreg(bws=all.models[[i]],exdat=grids[[i]]))
     }
     if (method=="dynatree") {
       if (is.null(model$dt.Npart) | is.null(model$dt.minp) | is.null(model$dt.ab) | is.null(model$dt.type))
@@ -565,7 +565,7 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
         else
           kerorder <- model$np.kerorder
 
-        fits[[i]] <- np::npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+        fits[[i]] <- np::npregbw(xdat = init.grid, ydat = all.X[,model$dim+1],
                            regtype=regtype, ckertype=kertype,ckerorder=kerorder)
     }
 
@@ -799,7 +799,7 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
       else
         kerorder <- model$np.kerorder
       
-      fits[[i,kk]] <- np::npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+      fits[[i,kk]] <- np::npregbw(xdat = init.grid, ydat = all.X[,model$dim+1],
                          regtype=regtype, ckertype=kertype,ckerorder=kerorder)
     }
   }  # end of loop over swing rights kk  
@@ -1283,7 +1283,7 @@ osp.impulse.control <- function(model,input.domain=NULL, method ="spline",verb=1
       else
         kerorder <- model$np.kerorder
       
-      fits[[i]] <- np::npreg(txdat = init.grid, tydat = all.X[,model$dim+1],
+      fits[[i]] <- np::npregbw(xdat = init.grid, ydat = all.X[,model$dim+1],
                              regtype=regtype, ckertype=kertype,ckerorder=kerorder)
     }
     
