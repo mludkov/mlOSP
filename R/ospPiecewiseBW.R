@@ -1,9 +1,9 @@
 ##########################################
-#' @title Longstaff Schwartz Algorithm using Bouchard-Warin method
+#' @title Longstaff Schwartz Algorithm using the Bouchard-Warin method
 #'
 #' Uses the Bouchard-Warin recursive partitioning to create N-d trees
 #' for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.
-#' @details Calls \link{treeDivide.BW} to create the equi-probably partitions.
+#' @details Calls \link{treeDivide.BW} to create the equi-probable partitions.
 #' Must have N/model$nChildren^model$dim as an integer.
 #' 
 #' @param N     the number of forward training paths
@@ -11,7 +11,7 @@
 #' \cr \code{T, dt, dim, nChildren},
 #'        \code{sim.func, x0, r, payoff.func}
 #' @param verb if specified, produces plots of the 1-dim fit every \code{verb} time-steps
-#' [default is zero]
+#' [default is zero, no plotting]
 #' @param test.paths (optional) a list containing out-of-sample paths to obtain a price estimate
 #'       
 #' @return a list with the following fields:
@@ -41,9 +41,13 @@
 osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
 {
   t.start <- Sys.time()
-  M <- model$T/model$dt
+  M <- as.integer(round(model$T/model$dt))
   grids <- list()
   preds <- list()
+  
+  if (is.null(model$nChildren) )
+    stop("Missing model parameters: must specify nChildren (number of partitions per dimension)")
+  
   
   # in 1-d save all the models to analyze the fits
   if (model$dim == 1) {
@@ -121,8 +125,8 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
   }
   
   # final answer
-  price <- mean(contValue)
-  print(paste(price, " and out-of-sample ", mean(test.value) ))
+  price <- mean(contValue) 
+  print(paste(round(price, digits=4), " and out-of-sample ", round(mean(test.value), digits=4 )) )
   if (verb >0) {
     plot(seq(model$dt,model$T,by=model$dt),bnd[,2], lwd=2, type="l", ylim=c(33,41),
          xlab="Time t", ylab="Stopping Boundary",col="red", cex.lab=1.2)
