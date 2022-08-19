@@ -2,7 +2,7 @@
 % Please edit documentation in R/ospPiecewiseBW.R
 \name{osp.probDesign.piecewisebw}
 \alias{osp.probDesign.piecewisebw}
-\title{Longstaff Schwartz Algorithm using Bouchard-Warin method
+\title{Longstaff Schwartz Algorithm using the Bouchard-Warin method
 
 Uses the Bouchard-Warin recursive partitioning to create N-d trees
 for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.}
@@ -19,7 +19,7 @@ osp.probDesign.piecewisebw(N, model, test.paths = NULL, verb = 0)
 \item{test.paths}{(optional) a list containing out-of-sample paths to obtain a price estimate}
 
 \item{verb}{if specified, produces plots of the 1-dim fit every \code{verb} time-steps
-[default is zero]}
+[default is zero, no plotting]}
 }
 \value{
 a list with the following fields:
@@ -32,13 +32,13 @@ a list with the following fields:
 }
 }
 \description{
-Longstaff Schwartz Algorithm using Bouchard-Warin method
+Longstaff Schwartz Algorithm using the Bouchard-Warin method
 
 Uses the Bouchard-Warin recursive partitioning to create N-d trees
 for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.
 }
 \details{
-Calls \link{treeDivide.BW} to create the equi-probably partitions.
+Calls \link{treeDivide.BW} to create the equi-probable partitions.
 Must have N/model$nChildren^model$dim as an integer.
 }
 \examples{

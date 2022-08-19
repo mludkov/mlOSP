@@ -20,7 +20,8 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 \itemize{
 \item  NULL will use an empirical probabilistic design based on the pilot paths (default);
 \item if a vector of length 2*model$dim then specifies the bounding rectangle
-\item a single positive number, then build a bounding rectangle based on the \eqn{\alpha}-quantile of the pilot paths
+\item a single positive number, then build a bounding rectangle based on the 
+\eqn{\alpha}-quantile of the pilot paths
 \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
 \item a vector specifies the precise design, used as-is (\emph{overrides design size})
 }}
@@ -28,7 +29,8 @@ All the empirical domains rely on pilot paths generated using \code{pilot.nsims}
 \item{method}{regression method to use (defaults to \code{km})
 \itemize{
 \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
-\item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
+Must provide \code{km.cov} (vector of lengthscales) and \code{km.var} (process variance)
+\item trainkm: GP w/trained hyperparams: uses \pkg{DiceKriging} via \code{km}
 \item mlegp Local approximate GP from the \pkg{laGP}. Requires
 \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
@@ -37,8 +39,9 @@ knots via \code{model$nk}
 \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter (only in 1D or 2D)
 \item rvm: Relevance Vector Machine: uses \code{rvm} from \pkg{kernlab}. Can optionally provide
 \code{rvm.kernel} parameter (default is 'rbfdot')
-\item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
- (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
+\item npreg: kernel regression using \pkg{np} package. Can optionally provide \code{np.kertype} 
+ (default is "gaussian"); \code{np.regtype} (default is Linear-constant "lc"); \code{np.kerorder}
+ (default kernel order is 2) and \code{np.bwtype} (default bandwidth type is "fixed")
 \item lm: linear model from \pkg{stats}
 }}
 
@@ -63,8 +66,8 @@ RMC based on a batched non-adaptive design with a variety of regression methods
 The design can be replicated through \code{batch.nrep} model parameter. Replication allows to use
 nonparametric techniques which would be too expensive otherwise, in particular LOESS, GP and RVM.
 All designs are restricted to in-the-money region, see \code{inTheMoney.thresh} parameter (modify at your own risk)
-Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, ie the
-method only builds the emulators. Thus, to obtain an actual estimate of the opton price
+Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, i.e. the
+method only builds the emulators. Thus, to obtain an actual estimate of the option price
 combine with \code{\link{forward.sim.policy}}.
 }
 \examples{

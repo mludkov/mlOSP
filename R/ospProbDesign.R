@@ -16,7 +16,7 @@
 #' @param method a string specifying regression method to use
 #' \itemize{
 #'  \item spline: Smoothing splines \code{smooth.spline} from \pkg{base}. Only works \emph{in 1D}.
-#'  Requires number of knots \code{nk}.
+#'  Requires number of knots \code{nk}. If \code{nk} is omitted, does cross-validation.
 #'  \item randomforest: (from \pkg{randomForest} package) requires \code{rf.maxnode}
 #'  and \code{rf.ntree} (number of trees) model parameters
 #'  \item loess: local polynomial regression. Only works in \emph{1D or 2D}, 
@@ -119,9 +119,9 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
     ### CASES DEPENDING ON METHOD
     if (method == "spline" & ncol(grids[[i]]) == 1) { # only works in 1D
       if (is.null(model$nk) )
-        stop("Missing parameters to pass to stats::smooth.spline function. Need model$nk")
-      
-      all.models[[i]] <- stats::smooth.spline( x=grids[[i]][c.train],y=yVal,
+        all.models[[i]] <- stats::smooth.spline( x=grids[[i]][c.train],y=yVal)
+      else 
+         all.models[[i]] <- stats::smooth.spline( x=grids[[i]][c.train],y=yVal,
                                         nknots = model$nk)
       timingValue <- predict(all.models[[i]],grids[[i]])$y
     }
@@ -300,14 +300,16 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \itemize{
 #' \item  NULL will use an empirical probabilistic design based on the pilot paths (default);
 #' \item if a vector of length 2*model$dim then specifies the bounding rectangle
-#' \item a single positive number, then build a bounding rectangle based on the \eqn{\alpha}-quantile of the pilot paths
+#' \item a single positive number, then build a bounding rectangle based on the 
+#' \eqn{\alpha}-quantile of the pilot paths
 #' \item a single negative number, then build a bounding rectangle based on the full range of the pilot paths
 #' \item a vector specifies the precise design, used as-is (\emph{overrides design size})
 #' }
 #' @param method regression method to use (defaults to \code{km})
 #' \itemize{
 #' \item km: Gaussian process with fixed hyperparams  uses \pkg{DiceKriging} via \code{km} (default)
-#' \item trainkm: GP w/trained hyperparams: use \pkg{DiceKriging} via \code{km}
+#' Must provide \code{km.cov} (vector of lengthscales) and \code{km.var} (process variance)
+#' \item trainkm: GP w/trained hyperparams: uses \pkg{DiceKriging} via \code{km}
 #' \item mlegp Local approximate GP from the \pkg{laGP}. Requires
 #' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 #' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
@@ -316,8 +318,9 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter (only in 1D or 2D)
 #' \item rvm: Relevance Vector Machine: uses \code{rvm} from \pkg{kernlab}. Can optionally provide
 #' \code{rvm.kernel} parameter (default is 'rbfdot')
-#' \item npreg: kernel regression using \pkg{npreg} package. Can optionally provide \code{np.kertype} 
-#'  (default is "gaussian"); \code{np.regtype} (default is "lc"); \code{np.kerorder} (default is 2)
+#' \item npreg: kernel regression using \pkg{np} package. Can optionally provide \code{np.kertype} 
+#'  (default is "gaussian"); \code{np.regtype} (default is Linear-constant "lc"); \code{np.kerorder}
+#'  (default kernel order is 2) and \code{np.bwtype} (default bandwidth type is "fixed")
 #' \item lm: linear model from \pkg{stats}
 #' }
 #' @param inTheMoney.thresh which paths are kept, out-of-the-money is dropped.
@@ -333,8 +336,8 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' @details The design can be replicated through \code{batch.nrep} model parameter. Replication allows to use
 #' nonparametric techniques which would be too expensive otherwise, in particular LOESS, GP and RVM.
 #' All designs are restricted to in-the-money region, see \code{inTheMoney.thresh} parameter (modify at your own risk)
-#' Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, ie the
-#' method only builds the emulators. Thus, to obtain an actual estimate of the opton price
+#' Thus, actual design size will be smaller than specified. By default, no forward evaluation is provided, i.e. the
+#' method only builds the emulators. Thus, to obtain an actual estimate of the option price
 #' combine with \code{\link{forward.sim.policy}}.
 #' 
 #' @author Mike Ludkovski
@@ -353,6 +356,8 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
   
   if ( is.null(model$stop.times))
     model$stop.times = 1:M
+  if (is.null(model$pilot.nsims) & (is.null(input.domain) | length(input.domain)== 2*model$dim))
+    model$pilot.nsims <- 500*model$dim
 
   fits <- list()   # list of fits at each step
   grids <- list()
@@ -458,16 +463,20 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
     all.X[,1:model$dim] <- init.grid  # use the first dim+1 columns for the batched GP regression.
 
     # create the km object
-    if (n.reps > 10 & method == "km")
+    if (n.reps > 10 & method == "km") {
+      if (is.null(model$km.cov) | is.null(model$km.var) )
+        stop("Missing parameters to pass to DiceKriging::km function. Need model$km.cov and model$km.var. Or re-run with method=trainkm")
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
                                    noise.var=all.X[,model$dim+2]/n.reps, control=list(trace=F),
                                    coef.trend=0,coef.cov=model$km.cov, coef.var=model$km.var, covtype=model$kernel.family)
-    else if (method == "km")  # manually estimate the nugget for small batches
-      fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
+    } else if (method == "km") { # manually estimate the nugget for small batches
+        if (is.null(model$km.cov) | is.null(model$km.var) )
+          stop("Missing parameters to pass to DiceKriging::km function. Need model$km.cov and model$km.var. Or re-run with method=trainkm")
+        fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
                                    control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
                                    coef.trend=0, coef.cov=model$km.cov, coef.var=model$km.var,
                                    nugget.estim=TRUE, nugget=sqrt(mean(all.X[,model$dim+2])), covtype=model$kernel.family)
-    else if (method =="trainkm")
+    } else if (method =="trainkm")
       fits[[i]] <- DiceKriging::km(y~0, design=data.frame(x=init.grid), response=data.frame(y=all.X[,model$dim+1]),
                                    control=list(trace=F), lower=model$min.lengthscale, upper=model$max.lengthscale,
                                    noise.var=all.X[,model$dim+2]/n.reps, covtype=model$kernel.family)
@@ -542,8 +551,12 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       fits[[i]] <-  list(scale=scale_list, reps=hetData2, Xmt=Xmt)
       class(fits[[i]]) <- "ligprep"
     }
-    else if (model$dim == 1 & method=="spline")  # only possible in 1D
+    else if (model$dim == 1 & method=="spline") { # only possible in 1D
+      if (is.null(model$nk) )
+        stop("Missing parameters to pass to smooth.spline function. Need model$nk")
+      
       fits[[i]] <- stats::smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
+    } 
     else if (method == "rvm") {
         if (is.null(model$rvm.kernel))
           rvmk <- "rbfdot"
@@ -564,9 +577,14 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
           kerorder <- 2
         else
           kerorder <- model$np.kerorder
+        if (is.null(model$np.bwtype))
+          bwtype <- "fixed"
+        else
+          bwtype <- model$np.bwtype
 
         fits[[i]] <- np::npregbw(xdat = init.grid, ydat = all.X[,model$dim+1],
-                           regtype=regtype, ckertype=kertype,ckerorder=kerorder)
+                           regtype=regtype, ckertype=kertype,
+                           ckerorder=kerorder, bwtype=bwtype)
     }
 
   }  # end of loop over time-steps

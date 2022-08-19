@@ -20,7 +20,7 @@ By default everything is in-sample}
 \item{method}{a string specifying regression method to use
 \itemize{
  \item spline: Smoothing splines \code{smooth.spline} from \pkg{base}. Only works \emph{in 1D}.
- Requires number of knots \code{nk}.
+ Requires number of knots \code{nk}. If \code{nk} is omitted, does cross-validation.
  \item randomforest: (from \pkg{randomForest} package) requires \code{rf.maxnode}
  and \code{rf.ntree} (number of trees) model parameters
  \item loess: local polynomial regression. Only works in \emph{1D or 2D}, 
