@@ -75,6 +75,9 @@
 osp.prob.design <- function(N,model,subset=1:N,method="lm")
 {
   M <- as.integer(round(model$T/model$dt))
+  if (method %in% c('lm','rvm','npreg','lagp','spline','loess','nnet',
+                    'dynatree','randomforest', 'earth') == FALSE)
+    stop("Regression `method` must case-match one of implemented choices.")
   grids <- list()
   all.models <- list()
   if (is.null(subset))
@@ -352,6 +355,9 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0, stop.freq=model$dt)
 {
   M <- as.integer(round(model$T/model$dt))
+  if (method %in% c('lm','km','trainkm','rvm','npreg','lagp','spline','loess','nnet',
+                    'dynatree','randomforest', 'earth', 'mlegp', 'homgp', 'hetgp','homtp') == FALSE)
+    stop("Regression `method` must case-match one of implemented choices.")
   t.start <- Sys.time()
   
   if ( is.null(model$stop.times))
@@ -396,6 +402,9 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       n.reps <- model$batch.nrep[i]
 
     if (is.null(input.domain))  {   # empirical design using simulated pilot paths
+      if (model$pilot.nsims == 0)
+        stop("Please specify how many pilot paths to use `pilot.nsims` to create the bounding domain.")
+      
       init.grid <- grids[[i]]
       init.grid <- init.grid[ model$payoff.func(grids[[i]], model) > inTheMoney.thresh,,drop=F]
 
@@ -404,6 +413,9 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
     else if (length(input.domain)==2*model$dim | length(input.domain)==1) {
       # space-filling design over a rectangle
       if (length(input.domain) == 1){
+        if (model$pilot.nsims == 0)
+          stop("Please specify how many pilot paths to use `pilot.nsims` to create the bounding domain.")
+        
         # specifies the box as empirical quantiles, should be 0.01. If zero then use the full range
         my.domain <- matrix( rep(0, 2*model$dim), ncol=2)
         if (input.domain > 0) {
@@ -657,6 +669,9 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
 swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0)
 {
   M <- as.integer(round(model$T/model$dt))
+  if (method %in% c('lm','km','trainkm','rvm','npreg','spline','loess','nnet',
+                    'cvspline', 'mlegp','homgp','hetgp') == FALSE)
+    stop("Regression `method` must case-match one of implemented choices.")
   t.start <- Sys.time()
   refractN <- model$refract/model$dt
   
@@ -702,6 +717,9 @@ swing.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.
     else if (length(input.domain)==2*model$dim | length(input.domain)==1) {
       # space-filling design over a rectangle
       if (length(input.domain) == 1){
+        if (model$pilot.nsims == 0)
+          stop("Please specify how many pilot paths to use `pilot.nsims` to create the bounding domain.")
+        
         # specifies the box as empirical quantiles, should be 0.01. If zero then use the full range
         my.domain <- matrix( rep(0, 2*model$dim), ncol=2)
         if (input.domain > 0) {
