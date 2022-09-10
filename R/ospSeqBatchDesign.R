@@ -21,8 +21,9 @@
 #' 
 #' @param model  a list containing all the model parameters.
 #' 
-#' @param method either \code{km} or \code{hetgp} to select the GP emulator to apply
-#' @param t0 parameter \code{t0} for \code{ABSUR} heuristic [Default value is 0.01]
+#' @param method A GP emulator to apply. Must be one of \code{km}, \code{trainkm}
+#' \code{homgp}, \code{homtp} or \code{hetgp} 
+#' @param t0 parameter \code{t0} for the \code{ABSUR} heuristic [Default value is 0.01]
 #' @param is.gbm flag to indicate whether the underlying simulator is independent log-normals (used 
 #' as part of density computation for integrated EI criteria) [Default FALSE]
 #' @export
@@ -49,7 +50,7 @@
 #'  div=0,T=1,dt=0.04,dim=2,sim.func=sim.gbm, 
 #'  payoff.func=put.payoff, look.ahead=1, pilot.nsims=1000,
 #'  cand.len=1000,max.lengthscale=c(40,40),min.lengthscale=c(3,3),
-#'  seq.design.size=50,batch.nrep=25,total.budget=1000,init.size=30,
+#'  seq.design.size=50,batch.nrep=25,total.budget=2000,init.size=30,
 #'  init.grid=sob30, kernel.family="gauss",update.freq=5,
 #'  r.cand=c(20, 30,40,50,60, 80, 120, 160))
 #' set.seed(11)
@@ -60,10 +61,14 @@
 #' model2d$batch.heuristic <- 'adsa'
 #' model2d$ei.func <- 'amcu'
 #' oos.obj.adsa <- osp.seq.batch.design(model2d,method="trainkm")
-#' # not run: plt.2d.surf.with.batch(oos.obj.adsa$fit[[10]],25)
+#' plt.2d.surf.with.batch(oos.obj.adsa$fit[[15]], 
+#'                      oos.obj.adsa$batches[1:oos.obj.adsa$ndesigns[15] - 1, 15])
 osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
 {
   M <- model$T/model$dt
+  if (method %in% c('km','trainkm','hetgp','homgp','homtp') == FALSE)
+    stop("Regression `method` must case-match one of implemented choices.")
+  
   t.start <- Sys.time()
   cur.sim <- 0
   if (is.null(model$ei.func)) {
@@ -77,6 +82,9 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
   }
   if (is.null(model$cand.len))
     model$cand.len <- 500*model$dim
+  
+  if (is.null(model$pilot.nsims))
+    model$pilot.nsims <- 5*model$init.size
 
   # parameters in absur
   if (is.null(model$total.budget)) {
@@ -100,8 +108,8 @@ osp.seq.batch.design <- function(model, method="km", t0 = 0.01, is.gbm=FALSE)
   update.kernel.iters <- seq(0,model$seq.design.size,by=model$update.freq)   # when to refit the whole GP
 
   # set-up a skeleton to understand the distribution of X
-  pilot.paths[[1]] <- model$sim.func( matrix(rep(model$x0[1:model$dim], 5*model$init.size),
-                                             nrow=5*model$init.size, byrow=T), model, model$dt)
+  pilot.paths[[1]] <- model$sim.func( matrix(rep(model$x0[1:model$dim], model$pilot.nsims),
+                                             nrow=model$pilot.nsims, byrow=T), model, model$dt)
   for (i in 2:(M-1)) {
     pilot.paths[[i]] <- model$sim.func( pilot.paths[[i-1]], model, model$dt)
   }
