@@ -2,17 +2,17 @@
 #' @title Longstaff Schwartz Algorithm using the Bouchard-Warin method
 #'
 #' Uses the Bouchard-Warin recursive partitioning to create N-d trees
-#' for local linear regression fits. Each tree node contains N/model$nChildren^model$dim inputs.
+#' for local linear regression fits. Each tree node contains N/model$nBins^model$dim inputs.
 #' @details Calls \link{treeDivide.BW} to create the equi-probable partitions.
-#' Must have N/model$nChildren^model$dim as an integer.
+#' Must have N/model$nBins^model$dim as an integer.
 #' 
 #' @param N     the number of forward training paths
 #' @param model a list defining all model parameters. Must contain the following fields:
-#' \cr \code{T, dt, dim, nChildren},
+#' \cr \code{T, dt, dim, nBins},
 #'        \code{sim.func, x0, r, payoff.func}
 #' @param verb if specified, produces plots of the 1-dim fit every \code{verb} time-steps
 #' [default is zero, no plotting]
-#' @param test.paths (optional) a list containing out-of-sample paths to obtain a price estimate
+#' @param tst.paths (optional) a list containing out-of-sample paths to obtain a price estimate
 #'       
 #' @return a list with the following fields:
 #' \itemize{
@@ -32,27 +32,27 @@
 #' set.seed(1)
 #' modelSV5 <- list(K=100,x0=c(90, log(0.35)),r=0.0225,div=0,sigma=1,
 #'    T=50/252,dt=1/252,svAlpha=0.015,svEpsY=1,svVol=3,svRho=-0.03,svMean=2.95,
-#'    eulerDt=1/2520, dim=2,sim.func=sim.expOU.sv,nChildren=10,payoff.func=sv.put.payoff)
+#'    eulerDt=1/2520, dim=2,sim.func=sim.expOU.sv,nBins=10,payoff.func=sv.put.payoff)
 #' putPr <- osp.probDesign.piecewisebw(20000,modelSV5)
 #' putPr$price
 #'   # get [1] 17.30111
 #' @export
 ###########################################
-osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
+osp.probDesign.piecewisebw <- function(N,model,tst.paths=NULL, verb=0)
 {
   t.start <- Sys.time()
   M <- as.integer(round(model$T/model$dt))
   grids <- list()
   preds <- list()
   
-  if (is.null(model$nChildren) )
-    stop("Missing model parameters: must specify nChildren (number of partitions per dimension)")
+  if (is.null(model$nBins) )
+    stop("Missing model parameters: must specify nBins (number of partitions per dimension)")
   
   
   # in 1-d save all the models to analyze the fits
   if (model$dim == 1) {
-    all.models <- array(list(NULL), dim=c(M,model$nChildren))
-    all.bounds <- array(0, dim=c(M,model$nChildren))
+    all.models <- array(list(NULL), dim=c(M,model$nBins))
+    all.bounds <- array(0, dim=c(M,model$nBins))
     bnd <- array(0, dim=c(M,3))  
     # used for 1-D case, saves the stopping boundary for each time step
     bnd[M,] <- c(model$K,model$K,N)
@@ -64,11 +64,13 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
     grids[[i]] <- model$sim.func( grids[[i-1]], model, model$dt)
   
   # make sure to have something for out-of-sample
-  if (is.null(test.paths)) {
+  if (is.null(tst.paths)) {
     test.paths <- list()
     for (i in 1:M)
       test.paths[[i]] <- grids[[i]][1:min(N,100),,drop=F]
   }
+  else 
+    test.paths <- tst.paths
   
   # initialize the continuation values/stopping times
   contValue <- exp(-model$r*model$dt)*model$payoff.func( grids[[M]], model)
@@ -126,7 +128,10 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
   
   # final answer
   price <- mean(contValue) 
-  print(paste(round(price, digits=4), " and out-of-sample ", round(mean(test.value), digits=4 )) )
+  out.message <- paste("In-sample estimated price: ", round(price, digits=3))
+  if (is.null(tst.paths) == FALSE)
+    out.message <- paste(out.message, " and out-of-sample ", round(mean(test.value), digits=3 ))
+  cat(out.message)
   if (verb >0) {
     plot(seq(model$dt,model$T,by=model$dt),bnd[,2], lwd=2, type="l", ylim=c(33,41),
          xlab="Time t", ylab="Stopping Boundary",col="red", cex.lab=1.2)
@@ -141,5 +146,6 @@ osp.probDesign.piecewisebw <- function(N,model,test.paths=NULL, verb=0)
   #  tau is a vector of stopping times over in-sample paths
   #  test is a vector of out-of-sample pathwise rewards
   #  val is a vector of in-sample pathwise rewards
+  # time elapsed (for benchmarking)
   return( list(price=price,tau=tau,test=test.value,val=contValue, timeElapsed=Sys.time()-t.start))
 }

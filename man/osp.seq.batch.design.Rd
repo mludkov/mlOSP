@@ -9,9 +9,10 @@ osp.seq.batch.design(model, method = "km", t0 = 0.01, is.gbm = FALSE)
 \arguments{
 \item{model}{a list containing all the model parameters.}
 
-\item{method}{either \code{km} or \code{hetgp} to select the GP emulator to apply}
+\item{method}{A GP emulator to apply. Must be one of \code{km}, \code{trainkm}
+\code{homgp}, \code{homtp} or \code{hetgp}}
 
-\item{t0}{parameter \code{t0} for \code{ABSUR} heuristic [Default value is 0.01]}
+\item{t0}{parameter \code{t0} for the \code{ABSUR} heuristic [Default value is 0.01]}
 
 \item{is.gbm}{flag to indicate whether the underlying simulator is independent log-normals (used 
 as part of density computation for integrated EI criteria) [Default FALSE]}
@@ -55,7 +56,7 @@ model2d <- list(x0 = rep(40,2),K=40,sigma=rep(0.2,2),r=0.06,
  div=0,T=1,dt=0.04,dim=2,sim.func=sim.gbm, 
  payoff.func=put.payoff, look.ahead=1, pilot.nsims=1000,
  cand.len=1000,max.lengthscale=c(40,40),min.lengthscale=c(3,3),
- seq.design.size=50,batch.nrep=25,total.budget=1000,init.size=30,
+ seq.design.size=50,batch.nrep=25,total.budget=2000,init.size=30,
  init.grid=sob30, kernel.family="gauss",update.freq=5,
  r.cand=c(20, 30,40,50,60, 80, 120, 160))
 set.seed(11)
@@ -66,7 +67,8 @@ require(ks)
 model2d$batch.heuristic <- 'adsa'
 model2d$ei.func <- 'amcu'
 oos.obj.adsa <- osp.seq.batch.design(model2d,method="trainkm")
-# not run: plt.2d.surf.with.batch(oos.obj.adsa$fit[[10]],25)
+plt.2d.surf.with.batch(oos.obj.adsa$fit[[15]], 
+                     oos.obj.adsa$batches[1:oos.obj.adsa$ndesigns[15] - 1, 15])
 }
 \references{
 M. Ludkovski, X. Lyu (2020+) Adaptive Batching for Gaussian Process Surrogates with Application 

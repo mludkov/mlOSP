@@ -276,7 +276,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
   # in/sample and out-of-sample average at x0
   if (length(subset) < N & length(subset) > 0) {
       price <- c(mean(contValue[train]),mean(contValue[subset]))
-      print(sprintf("in-sample v_0 %3f; and out-of-sample: %3f", price[1], price[2]))
+      print(sprintf("In-sample price estimate %.3f; and out-of-sample: %.3f", price[1], price[2]))
       test <- contValue[subset]
   }
   else
@@ -316,8 +316,10 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 #' \item mlegp Local approximate GP from the \pkg{laGP}. Requires
 #' \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 #' \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
-#' \item spline: Smoothing Splines, use \code{smooth.spline} (only in 1D). Requires number of 
+#' \item spline: Smoothing Splines, use \code{smooth.spline} (only supported in 1D). Requires number of 
 #' knots via \code{model$nk} 
+#' \item cvspline: Cross-validated Smoothing Splines, use \code{smooth.spline} (only supported in 1D). 
+#' Number of knots chosen automatically via cross-validation.
 #' \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter (only in 1D or 2D)
 #' \item rvm: Relevance Vector Machine: uses \code{rvm} from \pkg{kernlab}. Can optionally provide
 #' \code{rvm.kernel} parameter (default is 'rbfdot')
@@ -355,7 +357,7 @@ osp.prob.design <- function(N,model,subset=1:N,method="lm")
 osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.thresh = 0, stop.freq=model$dt)
 {
   M <- as.integer(round(model$T/model$dt))
-  if (method %in% c('lm','km','trainkm','rvm','npreg','lagp','spline','loess','nnet',
+  if (method %in% c('lm','km','trainkm','rvm','npreg','lagp','spline', 'cvspline', 'loess','nnet',
                     'dynatree','randomforest', 'earth', 'mlegp', 'homgp', 'hetgp','homtp') == FALSE)
     stop("Regression `method` must case-match one of implemented choices.")
   t.start <- Sys.time()
@@ -569,6 +571,9 @@ osp.fixed.design <- function(model,input.domain=NULL, method ="km",inTheMoney.th
       
       fits[[i]] <- stats::smooth.spline(x=init.grid,y=all.X[,2],nknots=model$nk)
     } 
+    else if (method == "cvspline" & model$dim == 1) { # only works in 1D
+      fits[[i]] <- stats::smooth.spline( x=grids[[i]],y=yVal)  # cross-validate DF
+    }
     else if (method == "rvm") {
         if (is.null(model$rvm.kernel))
           rvmk <- "rbfdot"
@@ -1053,7 +1058,7 @@ osp.tvr <- function(N,model,subset=1:N,method="lm")
   test <- NULL
   if (length(subset) < N & length(subset) > 0) {
     price <- c(mean(contValue[train]),mean(contValue[subset]))
-    print(sprintf("in-sample v_0 %3f; and out-of-sample: %3f", price[1], price[2]))
+    print(sprintf("In-sample price estimate %.3f; and out-of-sample: %.3f", price[1], price[2]))
     test <- contValue[subset]
   }
   else

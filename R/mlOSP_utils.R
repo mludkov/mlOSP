@@ -279,43 +279,44 @@ plt.2d.surf <- function( fit, x=seq(31,43,len=201),y = seq(31,43,len=201),
 
 
 ######################################
-#' @title Create a Bouchard-Warin equal prob grid
+#' @title Create a Bouchard-Warin equi-probable grid of regression sub-domains
 #'
 #' @details Recursively sort along each of the d-coordinates
 #' At the end do local linear regression at each leaf
 #' This is a recursive algorithm!
 #' first column is reserved for the y-coordinate (timingValue)
-#' It's safest if nrows(grid) is divisible by \code{model$nChildren^model$dim}
+#' It's safest if nrows(grid) is divisible by \code{model$nBinsmodel$dim}
 #' @param curDim dimension of the grid
-#' @param model a list containing all model parameters. In particular must have \code{model$nChildren}
+#' @param model a list containing all model parameters. In particular must have 
+#' \code{model$nBins} defined
 #' @param grid dataset of x-values
-#' @param test testPaths to predict along as well
+#' @param test.paths testing paths to predict along as well
 #' @export
-treeDivide.BW <- function(grid,curDim, model,test)
+treeDivide.BW <- function(grid,curDim, model,test.paths)
 {
-  lenChild <- round(dim(grid)[1]/model$nChildren)
+  lenChild <- round(dim(grid)[1]/model$nBins)
   fit.in <- array(0, dim(grid)[1])
-  fit.test <- array(0, dim(test)[1])
+  fit.test <- array(0, dim(test.paths)[1])
   
   
   if (curDim <= (model$dim+1))
   {
     sorted <- sort(grid[,curDim],index.ret=T)$ix
-    for (j in 1:model$nChildren) {
+    for (j in 1:model$nBins) {
       ndxChild <- sorted[ (1+(j-1)*lenChild):min((j*lenChild),length(sorted))]
       # on the test data the index is shifted back by 1 since there is no 'y' column
-      test.ndx <- which( test[,curDim-1] > grid[sorted[ (1+(j-1)*lenChild)],curDim] & test[,curDim-1] <= grid[sorted[j*lenChild],curDim])
-      fitc <- treeDivide.BW(grid[ndxChild,], curDim+1, model, test[test.ndx,,drop=F])
+      test.ndx <- which( test.paths[,curDim-1] > grid[sorted[ (1+(j-1)*lenChild)],curDim] & 
+                           test.paths[,curDim-1] <= grid[sorted[j*lenChild],curDim])
+      fitc <- treeDivide.BW(grid[ndxChild,], curDim+1, model, test.paths[test.ndx,,drop=F])
       # save the in-sample and the out-of-sample results
       fit.in[ndxChild] <- fitc$in.sample
       fit.test[test.ndx] <- fitc$out.sample
     }
   }
   else  {
-    #fit <- predict(earth(grid,degree=2,nk=100,thresh=1e-8,nprune=10))
     fit <- lm(grid)
     fit.in <- predict(fit)
-    fit.test <- predict(fit, data.frame(grid=test))
+    fit.test <- predict(fit, data.frame(grid=test.paths))
   }
   return (list(in.sample=fit.in,out.sample=fit.test))
 }
@@ -327,14 +328,14 @@ treeDivide.BW <- function(grid,curDim, model,test)
 #' @export
 treeDivide.BW.1d <- function(grid,curDim, model, test)
 {
-  lenChild <- floor(dim(grid)[1]/model$nChildren)
+  lenChild <- floor(dim(grid)[1]/model$nBins)
   fitchild <- array(0, dim(grid)[1])
   fittest <- array(0, length(test))
   lm.model <- list()
-  bounds <- array(0, model$nChildren)
+  bounds <- array(0, model$nBins)
   
   sorted <- sort(grid[,curDim],index.ret=T)$ix
-  for (j in 1:model$nChildren) {
+  for (j in 1:model$nBins) {
     ndxChild <- sorted[ (1+(j-1)*lenChild):(j*lenChild)]
     test.ndx <- which( test > grid[sorted[ (1+(j-1)*lenChild)],curDim] & test <= grid[sorted[j*lenChild],curDim])
     

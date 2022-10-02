@@ -11,9 +11,8 @@ treeDivide.BW.1d(grid, curDim, model, test)
 
 \item{curDim}{dimension of the grid}
 
-\item{model}{a list containing all model parameters. In particular must have \code{model$nChildren}}
-
-\item{test}{testPaths to predict along as well}
+\item{model}{a list containing all model parameters. In particular must have 
+\code{model$nBins} defined}
 }
 \description{
 1-d version of \code{\link{treeDivide.BW}} that stores all the local fits

@@ -34,8 +34,10 @@ Must provide \code{km.cov} (vector of lengthscales) and \code{km.var} (process v
 \item mlegp Local approximate GP from the \pkg{laGP}. Requires
 \item homgp Homoskedastic GP: use \pkg{hetGP} with  \code{mleHomGP}
 \item hetgp Heteroskedastic GP: use \pkg{hetGP} with \code{mleHetGP}
-\item spline: Smoothing Splines, use \code{smooth.spline} (only in 1D). Requires number of 
+\item spline: Smoothing Splines, use \code{smooth.spline} (only supported in 1D). Requires number of 
 knots via \code{model$nk} 
+\item cvspline: Cross-validated Smoothing Splines, use \code{smooth.spline} (only supported in 1D). 
+Number of knots chosen automatically via cross-validation.
 \item loess: Local Regression: use \code{loess} with \code{lo.span} parameter (only in 1D or 2D)
 \item rvm: Relevance Vector Machine: uses \code{rvm} from \pkg{kernlab}. Can optionally provide
 \code{rvm.kernel} parameter (default is 'rbfdot')
