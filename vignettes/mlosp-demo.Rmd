@@ -1,0 +1,478 @@
+---
+title: "Machine Learning for Optimal Stopping Problems with mlOSP"
+bibliography: rmcBook.bib
+date: "April 21, 2023"
+author: Mike Ludkovski^[Department of Statistics and Applied Probability, University of California, Santa Barbara, 93106-3110. Work partially supported by NSF DMS-1821240. I also thank Xiong Lyu and Heming Chen for their contributions to the R package. The underlying source file was knitted from a RMarkdown document via pandoc.  ludkovski@pstat.ucsb.edu]
+output:
+  bookdown::html_document2
+documentclass: article
+keep_md: yes
+keep_tex: yes
+latex_engine: pdflatex
+lof: FALSE
+includes:
+  in_header: preamble.tex
+fontsize: 11pt
+natbiboptions: numbers
+biblio-style: abbrvnat
+linestretch: 1.04
+site: bookdown::bookdown_site
+abstract: This is a companion to the `mlOSP` library and article (Ludkovski, Journal of Computational Finance, 2023++), a computational template for Machine Learning for
+  Optimal Stopping Problems. The template is implemented in the `R` statistical environment
+  and publicly available via a `GitHub` repository. `mlOSP` presents a unified numerical implementation of Regression Monte Carlo (RMC) approaches to optimal stopping, providing a state-of-the-art, open-source, reproducible and transparent platform. Highlighting its modular nature, we present multiple novel variants of RMC algorithms, especially in terms of constructing simulation designs for training the regressors, as well as in terms of machine learning regression modules. Furthermore, `mlOSP` nests most of the
+  existing RMC schemes, allowing for a consistent and verifiable benchmarking
+  of extant algorithms. Additional figures and code are in the published article.
+vignette: >
+    %\VignetteIndexEntry{Machine Learning for Optimal Stopping Problems with mlOSP}
+    %\VignetteEncoding{UTF-8}
+    %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include=FALSE}
+ knitr::opts_chunk$set(echo = TRUE, fig.path='figures/', dev=c('png', 'pdf'), dpi=100, fig.width=6.4, fig.height=3.6,cache=TRUE,warning=FALSE,message=FALSE)
+```
+
+
+This demo illustrates the `{mlOSP}` library  [@mlOSP] was first released in late 2020; by September 2022 it is in its Version 1.2 incarnation. The demo in particular reproduces Figures 3 and 4 in the accompanying article 
+and acts as a stand-alone  "User Guide" to `{mlOSP}`. 
+
+```{r warning=FALSE,message=FALSE,error=FALSE}
+library(ks)
+library(fields) # for plotting purposes, use quilt.plot in 2D
+library(colorspace)
+library(mlOSP)
+library(DiceKriging)
+library(tgp)  # use lhs from there
+library(randtoolbox)  # use sobol and halton QMC sequences
+library(randomForest)
+library(earth)
+library(hetGP)
+library(kernlab)
+library(ggplot2)
+library(kableExtra)
+library(gridExtra)
+library(mvtnorm)
+library(nnet)
+library(np)
+library(laGP)  # for distance function
+```
+
+
+# The mlOSP template
+
+## Regression Monte Carlo methodology
+
+An optimal stopping problem (OSP) is described through two main ingredients: the state process and the reward function. We shall use $X= (X(t))$ to denote the state process, assumed to be a stochastic process indexed  by the time  $t$ and taking values in ${\cal X} \subseteq \mathbb{R}^d$. The reward function $h(t,x): [0,T] \times \cal{X} \to \mathbb{R}$ represents the net present value (in dollars) of stopping at time $t$ in state $x$, where the notation emphasizes the common possibility of the reward depending on time, e.g.\ due to discounting. We assume the standard probabilistic structure of $(\Omega, {\cal F}, ({\cal F}_t), \mathbb{P})$, where $X$ is adapted to the filtration $({\cal F}_t)$, and $h(t,\cdot) \in L^2(\mathbb{P})$. 
+
+
+We seek the decision rule $\tau$, a *stopping time* to maximize expected reward until the horizon $T$:
+ \begin{align}\mathbb{E} \left[ h(\tau,X(\tau)) \right] \rightarrow \max! \end{align}
+To this end, we wish to evaluate the **value function** $V : [0,T] \times \cal{X} \to \mathbb{R}$,
+\begin{align}
+V(t,x) := \sup_{\tau \in \mathfrak{S}_t} \mathbb{E} \left[ h(\tau, X(\tau)) |\; X(t) = x \right],
+\end{align}
+where $\mathfrak{S}_t$ is the collection of all $({\cal F}_t)$-stopping times bigger than $t$ and less than or equal to $T$. 
+
+The state $(X(t))$ is typically assumed to satisfy a Stochastic Differential Equation of Îto type,
+\begin{equation}
+dX(t) = \mu(X(t)) \, dt + \sigma(X(t))\, dW(t), (\#eq:sde)
+\end{equation}
+where $(W(t))$ is a (multi-dimensional) Brownian motion and the drift $\mu(\cdot)$ and volatility $\sigma(\cdot)$ are smooth enough to yield a unique strong solution to \@ref(eq:sde). The structure of \@ref(eq:sde) is not essential beyond its Markov property, and other stochastic processes $X$, for example jump-diffusions, can be treated interchangeably. Note that while we use $\mathbb{P},\mathbb{E}$ to denote the probability and expectation operators, financially we are working under the risk-neutral "$\mathbb{Q}$"-measure that is the relevant one for contingent claim valuation. 
+
+
+We adopt the discrete-time paradigm, where decisions are made at $K+1$ pre-specified instances $t_0=0 < t_1 < \ldots < t_k < t_{k+1} < \ldots < t_K = T$,  where typically $t_k = k\Delta t$ for a given discretization step $\Delta t$. We index time steps by $k$ and work with ${\cal T} = (t_k)_{k=0}^K$.
+
+It is most intuitive to think of optimal stopping as dynamic decision making. At each exercise step $k$, the controller must decide whether to stop (0) or continue (1), which within a Markovian structure is encoded via the action strategy ${\cal A}=(A_{0:K}(\cdot))$ with each $A_k(x)  \in \{ 0,1 \}$. The  action map $A_k$ gives rise to the stopping region
+$$ {\cal S}_k := \{ x : A_k(x) = 0\} \subseteq {\cal X}, $$ 
+where the decision is to stop, and in parallel defines the corresponding first hitting time $\tau_{A_{k:K}} := \inf \{ \ell \ge k :\, A_\ell(X(\ell)) = 0 \} \wedge K$ which is an optimal exercise time after $k$.
+Hence, solving an OSP is equivalent to classifying each pair $(x \in {\cal X}, t_k\in {\cal T})$ into ${\cal S}_k$ or its complement the continuation set. Recursively, the action set $A_k$ is characterized as 
+\begin{align}
+A_k(x) = 1 \quad \Longleftrightarrow \quad \mathbb{E} \left[ h(\tau_{A_{k+1:K}}, X({\tau_{A_{k+1:K}}})) | \, X(k) = x \right] > h(k,x), (#eq:A)
+\end{align}
+i.e.\ one should continue if the expected *reward-to-go* on the left of \@ref(eq:A) dominates the immediate payoff on the right. Denoting the step-ahead conditional expectation of the value function by
+\begin{align}
+q(k,x) := \mathbb{E} \left[ V(k+1, X({k+1})) | X(k) =x  \right]  (#eq:q) 
+\end{align}
+and using the Dynamic Programming principle, we can equivalently write
+$A_k(x) = 1 \; \Longleftrightarrow \; q(k,x) > h(k,x)$
+because we have $V(k+1,X(k+1)) = \mathbb{E}\left[ h(\tau_{A_{k+1:K}}, X({\tau_{ A_{k+1:K}}})) | X(k+1) \right]$. The $q$-value $q(k,\cdot)$ is also known as the continuation value.
+
+The above logic yields a recursive algorithm to construct approximate action maps $\widehat{A}_k$'s through iterating on either \@ref(eq:q) or \@ref(eq:A). Thus,  the RMC framework generates functional approximations of the continuation values $\hat{q}(k,\cdot)$ in order to build $\widehat{A}_k(\cdot)$.  This is initialized with $\widehat{V}(K,\cdot) \equiv h(K,\cdot)$ and proceeds with the following loop:
+
+For $k=K-1,\ldots,1$ repeat:
+
+i) Learn the $q$-value $\hat{q}(k,\cdot)$;
+
+ii) Set $\widehat{A}_k(\cdot) := 1_{\{ \hat{q}(k,\cdot) > h(k,\cdot) \} }$ and
+ $\widehat{V}(k,\cdot) := \max \bigl( \hat{q}(k,\cdot), h(k,\cdot) \bigr)$.
+
+The loop makes it clear that RMC hinges on a sequence of probabilistic function approximation tasks that are recursively defined. 
+
+As a final step, once all the action sets are computed they induce the expected reward
+\begin{align}
+\widetilde{V}(0,x; \widehat{A}_{0:K}) := \mathbb{E} \left[ h \bigl(\tau_{\widehat{A}_{0:K}}, X({\tau_{ \widehat{A}_{0:K}}}) \bigr) \big|\, X(0) = x\right]. (#eq:tildeV)
+\end{align}
+The gap between $\tilde{V}(0,x)$ and $V(0,x)$ (which is the maximal possible expected reward) is the performance metric for evaluating $\widehat{A}_{0:K}$.
+
+
+The key step requiring numerical approximation in the above loop is learning the continuation functions $q(k,\cdot)$. In the RMC paradigm it is handled by re-interpreting conditional expectation as the mean response within a stochastic model. Thus, given an input $x$ and fixing $k$, there is a generative model $x \mapsto q(k,x)$ which is not directly known but accessible through a pathwise reward *simulator* $x \mapsto Y(x)$, where $Y(x)$ is a random variable with mean $\mathbb{E}[ Y(x)] = q(k,x)$ and finite variance. The aim is then to *predict* the mean output of this simulator for an arbitrary $x$. This  learning task is resolved by running the simulator many times and then utilizing a statistical model to capture the observed input-output relationship.  It can be broken further down into three sub-problems:
+
+1. Defining the stochastic simulator;
+
+2. Defining the simulation design;
+
+3. Defining the regression model.
+
+Recasting in the machine learning terminology, for sub-step 1 we need to define a *Simulation Device* that accepts an input $x \in \cal{X}$ (the state at time $k$) and returns a random sample $Y(x)$, which is a random realization of the pathwise reward starting at $(k,x)$ such that $\mathbb{E}[Y(x)] = q(k,x)$. We have already discussed multiple versions of such simulators, cf. \@ref(eq:A)-\@ref(eq:q). In sub-step 2, we then need to decide which collection of $x$'s should be applied as a training set. After selecting such *Simulation Design* of some size $N$, $x^{1:N}$, we collect the simulation outputs $y^{1:N} = Y(x^{1:N})$ and reconstruct the model
+\begin{align}
+Y(x) = f(x) + \epsilon(x), \qquad \mathbb{E} [ \epsilon(x)] = 0, \quad\mathbb{V}ar(\epsilon(x)) = \sigma^2(x),
+ (#eq:stat-model)
+\end{align}
+where the inferred *Emulator* $f(x) \equiv \hat{q}(k,x)$ is the approximate continuation value.
+
+The above 3 sub-steps constitute one iteration of the overall loop; the aggregate RMC is 
+ a **sequence** of tasks, indexed by $k$. 
+
+
+
+## Dynamic Emulation Template
+
+In order to abstract from the payoff function specifics, **mlOSP** operates with the *timing value*, $$T(k,x) := q(k,x) - h(k,x).$$ Exercising is optimal when the timing value is negative $A_k(x) = 1 \Leftrightarrow T(k,x) \ge 0$; the stopping boundary is the zero contour of $T(k,\cdot)$. So instead of learning $q(k,\cdot)$, **mlOSP** learns $T(k,\cdot)$, solely a numerical rather than conceptual change. Given $\widehat{T}(k,x)$ one can recover the value function (and hence the option price) via
+$\hat{V}(k,x)=  h(k, x) + \max \bigl(0, \widehat{T}(k, x) 	\bigr)$. 
+
+Second, the abstract specification of the timing value emulator $\widehat{T}(k,\cdot)$ is as the empirical minimizer in some function space ${\cal H}_k$ of the mean squared error from the observations,
+\begin{align}
+\widehat{T}(k,\cdot) := \arg \min_{f \in {\cal H}_k} \sum_{n=1}^{N_k} (f(x^n(k)) - y^n)^2. (#eq:H-min)
+\end{align}
+For instance, in the linear model as above, ${\cal H}_k = span(B_1, \ldots, B_{R-1})$ are the linear combinations of the basis functions $B_r(\cdot)$ and \@ref(eq:H-min) is a finite-dimensional optimization problem in terms of the $R$ respective coefficients $\vec\beta$, with $\widehat{T}(k,x) = \beta_0 + \sum_{r=1}^{R-1} \beta_r B_r(x)$. Note that  $\widehat{T}(k,\cdot)$ is a statistical model; it is viewed as an object (rather than say a vector of numbers) and passed as a "function pointer" to the pathwise reward simulator in subsequent steps. The latter simulator in turn applies a **predict** method, asking $\widehat{T}(k,\cdot)$ to furnish a predicted timing value at arbitrary $x$.
+
+*Remark:* In `{mlOSP}` implementation, the emulator is employed only when the decision is non-trivial, i.e.\ in the in-the-money region ${\cal X}_{in} := \{ x : h(k,x) > 0\}$. This insight dates back to @LS who noted that learning $\widehat{T}(k,x)$ is only necessary when $h(k,x) >0$; otherwise it is clear that $T(k,x) > 0$ and hence we may set $\widehat{A}_k(x) = 1$. Thus, the simulation design ${\cal D}_k$ is restricted to be in ${\cal X}_{in}$.
+
+Finally, we index everything by the time steps $k=1,\ldots,K$, with corresponding $t_k = k\Delta t$ by default, and the following notation:
+
+* $N_k$: number of training inputs at step $k$  (can again vary across $k$);
+
+* ${\cal D}_k$: simulation design, i.e.\ the collection of training inputs $x^{(k),1:N_k}$ at step $k$; $|{\cal D}_k| = N_k$
+
+* ${\cal H}_k$: functional approximation space where $\widehat{T}(k,\cdot)$ is searched within;
+
+* $y^{1:N_k}_k$ pathwise samples of timing value used as the responses in the regression model.
+
+Equipped with above, Algorithm \@ref(alg:1) presents the **mlOSP** template, emphasizing the "moving parts" of the simulation designs $\mathcal{D}_{k}$ and fitting $\hat{T}(k,\cdot)$. These two building blocks are explored in Sections 3 and 4 below.
+
+Dynamic Emulation Algorithm: the \textbf{mlOSP} template. \@ref{alg:1}
+
+Input: $K=T/\Delta t$ (time steps), $(N_k)$ (simulation budget per step)}, $w$ (path lookahead) 
+
+For: $k=K - 1, \ldots, 0$
+
+* Generate training design $\mathcal{D}_{k} := (x^{(k),1:N_k}({k}))$ of size $N_{k}$ 
+
+* Generate $w$-step paths $x^{(k),n}({k}) \mapsto x^{(k),n}(s)$ for $n=1,\ldots,N_{k}$, $s=k+1,\ldots,(k+w) \wedge K$
+
+* Generate pathwise forward stopping rule $\tau^n_{k} = \min\{ s \ge k+1 : \widehat{T}(s, x^{(k),n}(s)) < 0 \} \wedge (k+w) \wedge K$ 
+
+* Generate pathwise timing value 
+\begin{align}
+y^n_{k+1} = \left\{ \begin{aligned}  & h\bigl(\tau^n_{k},x^{(k),n}({\tau}^n_{k}) \bigr) - h \bigl(k,x^{(k),n}({k}) \bigr) \hspace{2.1in} \text{if} \quad \tau^n_{k} < k+w;\\ 
+&\widehat{T}\bigl(k+w, x^{(k),n}({k+w}) \bigr)+h\bigl(k+w, x^{(k),n}({k+w}) \bigr)- h \bigl(k,x^{(k),n}({k}) \bigr) \quad \text{if} \quad\tau^n_{k} = (k+w) \wedge K. \end{aligned}\right.
+\end{align}
+
+* Fit $\widehat{T}(k,\cdot) \leftarrow \arg \min_{f(\cdot) \in \mathcal{H}_k} \sum_{n=1}^{N_k} |f(x^{(k),n}(k)) - y_{k+1}^n |^2$  
+
+* End for-loop
+
+* Return fitted objects $\{ \widehat{T}(k,\cdot) \}_{k=0}^{K-1}$
+
+
+
+## Expected Payoff
+
+The output of Algorithm \ref{alg:1} is the approximate decision rules $\widehat{A}_k(\cdot) = 1_{\{ \widehat{T}_k(\cdot) < 0\}}$. These are functions, taking as input the system state and returning the action to take (stop or continue). Additional computation is needed to evaluate the corresponding *expected payoff* $\tilde{V}$ of the stopping rule $\tau_{\widehat{A}_{0:K-1}}$ in \@ref(eq:tildeV).
+To do so, one again employs Monte Carlo simulation, approximating with a sample average on a set of fresh forward test scenarios $x^{1:N'}(k), k=1,\ldots,K$, $x^{n'}(0) = X(0)$,
+\begin{align}
+\check{V}(0,X(0)) = \frac{1}{N'} \sum_{n'=1}^{N'} h \left(\tau^{n'}, x^{n'}({\tau^{n'}}) \right), (#eq:out-of-sample)
+\end{align}
+where $\tau^n := \min \{ k  \ge 0 : x^n(k) \in \widehat{\mathcal{S}}_k \}$ is the pathwise stopping time. 
+Eqn.\ \@ref(eq:out-of-sample) also yields a confidence interval for the expected payoff by using the empirical standard deviation of  $h(\tau^{n'}, x^{n'}_{\tau^{n'}})$'s.  Because $\check{V}(0; X(0))$ is based on out-of-sample test scenarios, it is an unbiased estimator of $\tilde{V}$ and hence for large enough test sets it will yield a lower bound on the true optimal expected reward, $\mathbb{E}[ \check{V}(0,X(0))] = \tilde{V}(0,X(0);\widehat{A}_{0:K}) < V(0,X(0))$.  The interpretation is that the simulation design ${\cal D}_k$ defines a training set, while $x^{1:N'}(k)$ forms the test set. The latter is not only important to obtain unbiased estimates of expected reward from the rule $\tau_{\widehat{A}_{0:K}}$, but also to enable an apples-to-apples comparison between multiple solvers which should be run on a fixed test set of $X$-paths. 
+
+
+
+# Getting Started with `{mlOSP}`
+
+The `{mlOSP}` package [@mlOSP] implements multiple versions of Algorithm \@ref(alg:1).  The following user guide highlights its key aspects. I have strived to make it fully reproducible, with the full underlying `R` code available on GitHub. Since the schemes are intrinsically based on generating random outputs from the underlying stochastic simulator, I fix the random number generator (RNG) seeds. Depending on the particular machine and `R` version, these seeds might nevertheless lead to different results.
+
+The workflow pipeline in `{mlOSP}` consists of:
+
+(i) Defining the `model`, which is a list of (a) parameters that determine the dynamics of $(X(t))$ in \@ref(eq:sde); (b) the payoff function $h(t,x)$; and (c) the tuning parameters determining the regression emulator specification. 
+
+(ii) Calling the appropriate top-level solver. The solvers are indexed by the underlying type of *simulation design*. They also use a top-level `method` argument that selects from a collection of implemented regression modules. Otherwise, all other parameters are passed through the above `model` argument. The solver returns a collection of fitted emulators---an `R` list containing the respective regression object of $\widehat{T}(k,\cdot)$ for each time step $k$, plus a few diagnostics;
+
+(iii) Evaluating the obtained fitted emulators through an out-of-sample forward simulator via `forward.sim.policy` that evaluates \@ref(eq:tildeV). The latter is a top-level function that can work with any of the implemented regression objects. Alternatively, one may also *visualize* the emulators through a few provided plotting functions. 
+
+The aim of the above architecture is to maximize modularity and to simplify construction of  user-defined OSP instances, such as additional system dynamics or bespoke payoffs. The latter piece is illustrated in Section 7.2.
+
+The following example illustrates this workflow.  We consider a 1-D Bermudan Put with payoff $e^{-r t}({\cal K}-x)_+$ where the underlying dynamics for the asset price $(X(t))$ are given by Geometric Brownian Motion (GBM)
+$$ dX(t) = (r-\delta) X(t) dt + \sigma X(t) dW(t), \qquad X(0) = x_0,$$
+with scalar parameters $r,
+\delta,\sigma,x_0$. Thus, $X(t_k)$ can be simulated exactly by sampling from the respective log-normal distribution.
+In the model specification below we have $r=0.06, \delta=0, T=1, \sigma=0.2$ and the  Put strike is ${\cal K}=40$. Exercising the option is possible $K=25$ times before expiration, i.e., $\Delta t = 0.04$.  To implement the above OSP instance just requires defining a named list with the respective parameters (plus a few more for the regression model specified below):
+
+```{r first-example}
+put1d.model <- c(K=40, payoff.func=put.payoff,  # payoff function
+            x0=40,sigma=0.2,r=0.06,div=0,T=1,dt=0.04,dim=1, sim.func=sim.gbm,
+            km.cov=4,km.var=1,kernel.family="matern5_2",  # GP emulator params
+            pilot.nsims=0,batch.nrep=200,N=25)
+```
+
+As a representative solver, I utilize `osp.fixed.design` that asks the user to specify the simulation design directly. To select a particular regression approach, `osp.fixed.design` has a `method` field which can take a large range of regression methods. Specifics of each regression are controlled through additional `model` fields. As example, the code snippet below employs the `{DiceKriging}` Gaussian Process (GP) emulator with fixed hyperparameters and a constant prior mean, selected through `method="km"`. The kernel family is Matérn-5/2,  with hyperparameters specified via `km.cov`, `km.var` above. For the simulation design (`input.domain` field) I take $\{16,17,\ldots, 40\}$ with 200 replications (`batch.nrep`) per site, yielding $N=|{\cal D}|=200 \cdot 25$, see Section 4.1. The replications are treated using the SK method [@ankenman2010stochastic], pre-averaging the replicated outputs before training the GP. 
+
+
+```{r km-1d}
+train.grid.1d <- seq(16, 40, len=25)  # simulation design
+km.fit <- osp.fixed.design(put1d.model,input.domain=train.grid.1d, method="km")
+```
+
+Note that no output is printed: the produced object `km.fit` contains an array of 24 (one for each time step, except at maturity) fitted GP models, but does not yet contain the estimate  of the option price ${V}(0,X(0))$. Indeed, we have not defined any test set, and consequently are momentarily postponing the computation of $\check{V}(0,X(0))$.
+
+## Comparing solvers  
+
+`{mlOSP}` has several solvers and allows straightforward swapping of the different pieces of the template. Below, for example, I consider the LS scheme, implemented in the **osp.prob.design** solver, where the  simulation design is based on forward $X$-paths. I moreover replace the regression module with a smoothing cubic spline (**smooth.spline**; see [@Kohler08spline] for a discussion of using splines for RMC). The latter requires specifying the number of knots `model$nk`. Only 2 lines of code are necessary to make all these modifications and obtain an alternative solution of the same OSP:
+
+```{r 1d-spline}
+put1d.model$nk=20  # number of knots for the smoothing spline
+spl.fit <- osp.prob.design(N=30000,put1d.model,method="spline") #30K training paths
+```
+Again, there is no visible output; `spl.fit` now contains a list of 24 fitted spline objects that are each parametrized by 20 (number of chosen knots) cubic spline coefficients.
+
+Figure \@ref(fig:plot1) visualizes the fitted timing value from one time step. To do so, I predict $\widehat{T}(k,x)$ based on a fitted emulator (at $t=10\Delta t=0.4$) over a collection of test locations. In the Figure, this is done for both of the above solvers (GP-km and Spline), moreover we also display the 95% credible intervals of the GP emulator for $\widehat{T}(k,\cdot)$. Keep in mind that the exact *shape* of $\widehat{T}(k,\cdot)$ is irrelevant in **mlOSP**, all that matters is the implied $\widehat{A}_k$ which is the zero level set of the timing value, i.e.\ determined by the *sign* of $\widehat{T}(k,\cdot)$. Therefore, the two regression methods yield quite similar exercise rules, although they do differ (e.g.\ at $x=35$ the spline-based rule is to continue, while the GP-based one is to stop and exercise the Put).
+Since asymptotically both solvers should recover the optimal rule, their difference can be attributed to training errors. As such, uncertainty quantification of $\widehat{T}(k,\cdot)$ is a useful diagnostic to assess the perceived accuracy of $\widehat{\cal A}_k$. In Figure \@ref(fig:plot1) the displayed uncertainty band shows that the GP emulator has low confidence about the right action to take for nearly all $x \le 37$, since zero is inside the 95% credible band and therefore the positivity of $\widehat{T}(k,\cdot)$ in that region is not statistically significant. 
+
+```{r plot1, fig.cap="Timing value of a Bermudan Put based on GP emulator (black) and a Smoothing Spline emulator (purple) at $k=10$ ($t=0.4$). I also display  the uncertainty quantification regarding the GP fit of $\\widehat{T}(k,\\cdot)$ (the dashed $95\\%$ band).",fig.align='center'}
+check.x <- seq(25, 40, len=500)   # predictive sites
+km.pred <- predict(km.fit$fit[[10]],data.frame(x=check.x), type="UK") 
+to.plot.2 <- data.frame(km.fit=km.pred$mean,x=check.x,km.up=km.pred$upper95,km.down=km.pred$lower95,
+                        sp.fit=predict(spl.fit$fit[[10]],check.x)$y)
+ggplot(to.plot.2, aes(x=x)) + 
+  geom_line(aes(y=km.fit), size=1.25,color="black") +
+  geom_line(aes(y=sp.fit), size=1.25, color="purple") +
+  geom_line(aes(y=km.up),size=0.5,color="black",linetype="twodash") +
+  geom_line(aes(y=km.down),size=0.5,color="black",linetype="twodash") +
+   theme_light() + geom_hline(yintercept=0,linetype="dashed") +
+  scale_x_continuous(expand=c(0,0),limits=c(26,40))  + scale_y_continuous(expand=c(0,0), limits=c(-0.5,1.4)) + 
+   labs(x="x", y=expression(paste("Timing Value ",hat(T)(k,x)))) +
+  theme(axis.title = element_text(size = 9))
+  #geom_rug(aes(x=x), data= data.frame(x=train.grid.1d),sides="b")
+```
+
+
+`{mlOSP}` is designed to be dimension-agnostic, so that building a multi-dimensional model follows the exact same steps. For example, the two-line snippet below defines a 2D model with Geometric Brownian motion dynamics for the two assets $X_1, X_2$ and a basket average Put payoff
+$$h_{\text{avePut}}(t,x) = e^{-r t}({\cal K} - (x_1+x_2)/2)_+, \quad x \in {\mathbb{R}}^2_+.$$ The two assets are assumed to be uncorrelated with identical dynamics. I continue to use a strike of ${\cal K}=40$ and at-the-money (ATM) initial condition $X(0)=(40,40)$. 
+
+```{r 2D-test}
+model2d <- list(K=40,x0=rep(40,2),sigma=rep(0.2,2),r=0.06,div=0,
+                      T=1,dt=0.04,dim=2,sim.func=sim.gbm, payoff.func=put.payoff)
+```
+
+With the model defined, we can use the same solvers as above, with exactly the same syntax. To illustrate a different regression module, let us employ a linear model, `method="lm"`. To do so, we need to first define the basis functions $B_r(\cdot)$ that are passed to the `model$bases` parameter. Below I select polynomial bases of degree $\le 2$,  ${\cal H}_k = span \{x_1, x_1^2, x_2, x_2^2, x_1 \cdot x_2\}$; by default the `R` `lm` model also includes the constant term, so there are a total of 6 regression coefficients $\vec{\beta}$. 
+
+```{r 2dput-lm-polynomials}
+bas22 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2]))
+model2d$bases <- bas22
+prob.lm <- osp.prob.design(15000,model2d, method="lm")  # Train with 15,000 paths
+```
+
+For comparison, I re-solve with a GP emulator that has a space-filling training design of $N_{unique}=150$ sites replicated with batches of $N_{rep}=100$ each for a total of $N=15,000$ simulations again. 
+```{r 2dput-GP}
+model2d$N <- 150  # N_unique 
+model2d$kernel.family <- "gauss" # squared-exponential kernel
+model2d$batch.nrep <- 100
+model2d$pilot.nsims <- 0
+
+sob150 <- sobol(276, d=2) # Sobol space-filling sequence
+# triangular approximation domain for the simulation design
+sob150 <- sob150[ which( sob150[,1] + sob150[,2] <= 1) ,]  
+sob150 <- 25+30*sob150  # Lower-left triangle in [25,55]x[25,55], see Fig 
+
+sob.km <- osp.fixed.design(model2d,input.domain=sob150, method="trainkm")
+```
+
+```{r contour-plt,fig.align="center", fig.cap="Timing Value of a 2D Basket Put at $k=15$ ($t=0.6$). The red contour shows the boundary of the stopping set (bottom-left corner). The colors indicate the value of $\\widehat{T}(k,x)$. Left: LM emulator; Right: GP emulator."}
+g1.lm <- plt.2d.surf( prob.lm$fit[[15]], x=seq(25,50, len=101), y=seq(25,50,len=101),  bases=model2d$bases) + guides(fill = guide_colourbar(barwidth = 0.4, barheight = 7)) +
+  theme(axis.title=element_text(size=9),axis.text=element_text(size=9))
+g2.km <- plt.2d.surf( sob.km$fit[[15]], x=seq(25,50, len=101), y=seq(25,50,len=101))+ylab("") +
+  guides(fill = guide_colourbar(barwidth = 0.4, barheight = 7)) +
+  theme(axis.title=element_text(size=9),axis.text=element_text(size=9))
+g2.km$layers[[3]]$aes_params$size <- 1.4
+grid.arrange(g1.lm,g2.km,nrow=1,widths=c(4,3.7))
+```
+Figure \@ref(fig:contour-plt) visualizes the estimated stopping boundary from the above 2 solvers using the `plt.2d.surf` function from the package. It shows an image plot of the emulator $\widehat{T}(k,\cdot)$ at a single time-step $k$. Recall that  the stopping region is the level set where the timing value is negative, indicated with the red contours that delineate the exercise boundary. In the left panel, the exercise boundary is a parabola because $\widehat{T}(k,\cdot)$ is modeled as a quadratic. On the right panel, the exercise boundary has a much more complex shape since that $\widehat{T}(k,\cdot)$ has many more degrees of freedom. For the latter case, Figure \@ref(fig:contour-plt) also displays the underlying training design of $N_{unique}=150$ sites. 
+
+## Out-of-sample Tests
+
+By default, the solvers only create the functional representations of the timing/value function and do not return any explicit estimates of the option price or stopping rule. This reflects the strict separation between training and testing, as well as the fact that RMC builds a global estimate of $\widehat{T}(k,\cdot)$ and hence can be used to obtain a range of option prices (e.g.\ by changing $X(0)$).
+
+The following code snippet builds an out-of-sample database of $X$-paths. This is done iteratively by employing the underlying simulator, already saved under the `model2d$sim.func` field. The latter is interpreted as the function to generate a vector of $X(k+1)$'s conditional on $X(k)$.
+ By applying `payoff.func` to the final vector (which stores values of $X(T)$) we can get an estimate of the respective European option price $\mathbb{E}[ h(T,X(T))]$. By calling `forward.sim.policy` with a previously saved `{mlOSP}` object we then obtain a collection of $h(\tau^n, X^n({\tau^n})), n=1,\ldots,$ that can be averaged to obtain a $\check{V}(0,X(0))$ as in \@ref(eq:out-of-sample).
+
+```{r fig.cap="Comparing out-of-sample payoffs using LM and GP emulators"}
+nSims.2d <- 40000  # use N'=40,000 fresh trajectories
+nSteps.2d <- 25
+set.seed(102)
+test.2d <- list()  # store a database of forward trajectories
+test.2d[[1]] <- model2d$sim.func( matrix(rep(model2d$x0, nSims.2d),nrow=nSims.2d,
+                                         byrow=T), model2d, model2d$dt)
+for (i in 2:(nSteps.2d+1))  # generate forward trajectories
+   test.2d [[i]] <- model2d$sim.func( test.2d [[i-1]], model2d, model2d$dt)
+oos.lm <- forward.sim.policy( test.2d, nSteps.2d, prob.lm$fit, model2d) # lm payoff
+oos.km <- forward.sim.policy( test.2d, nSteps.2d, sob.km$fit,  model2d) # km payoff
+cat( paste('Price estimates', round(mean(oos.lm$p),3), round(mean(oos.km$p),3)))
+# check: estimated European option value
+cat(mean( exp(-model2d$r*model2d$T)*model2d$payoff.func(test.2d[[25]], model2d)))
+
+```
+
+Since we evaluated both estimators on the same set of test paths, we can conclude that the LM-Poly emulator leads to a better approximation $\check{V}^{LM}(0,x_0)=$ `r round(mean(oos.lm$payoff),digits=3)` $>$ `r round(mean(oos.km$payoff),digits=3)` $=\check{V}^{GP}(0,x_0)$  than the GP-km one. The reported European Put estimate of `r round((mean( exp(-model2d$r*model2d$T)*model2d$payoff.func(test.2d [[nSteps.2d]], model2d))), digits=3)` can be used as a control variate to adjust $\check{V}$ since it is based on the same test paths and so we expect that $\check{V}^{EU}(0,x_0) - \mathbb{E}\left[ h(T,X(T)) | X(0)=x_0 \right] \simeq \check{V}(0,x_0) - \mathbb{E} \left[ h(\hat{\tau}, X({\hat{\tau}})) | X(0)=x_0 \right]$. 
+
+The `osp.prob.design` LS solver can evaluate in parallel the in-sample estimator $\hat{V}(0,X(0))$ and the out-of-sample $\check{V}(0,X(0))$ by splitting the total simulation budget between training and testing paths. This is controlled by the `subset` parameter. For example, below we re-run the linear model from above but now using 15,000 training inputs and 15,000 test paths:
+
+```{r lm-in-sample}
+ls.lm <- osp.prob.design(30000,model2d,method="lm",subset=1:15000)
+```
+
+The returned price estimates are consistent with the intuition that $\hat{V}$ (in-sample) is biased high and $\check{V}$ (out-of-sample) is biased low compared to the true $V(0,X(0))$. 
+
+
+
+
+# Regression Emulators
+
+Over the past two decades, numerous proposals have been put forth beyond the original idea of ordinary least squares regression with user-specified basis functions. Any of the regression modules in R is a potential tool to fit a $\widehat{T}(k,\cdot)$ or equivalently $\hat{V}(k,\cdot)$, coming from the worlds of statistical and/or machine learning.  At its core, a regression module is based on the generic `fit` and `predict` methods and is otherwise fully interchangeable in terms of learning $\widehat{T}(k,\cdot)$. This means that it is possible to, say, substitute a neural network emulator with a random forest one, keeping all other aspects of the scheme exactly the same, and only changing a couple lines of code. In `{mlOSP}` this is enabled through the `method` field of the respective solver.  The implementation allows for a straightforward swapping of regression methods, facilitating comparison and experimentation.
+
+Appendix C.3 in the main article lists all the available choices, including further tools like Multivariate Adaptive Regression Splines, Local Linear Regression (LOESS), and smoothing splines.
+
+
+As a way to showcase new variants of RMC emulators, I illustrate them on a fixed multidimensional OSP, ending with an apples-to-apples horse race of their performance. To this end, consider a 3D OSP instance of a max-Call option $$h_{\text{maxCall}}(t,x) := e^{-r t} \left(\max_{i=1,\ldots, d} X_i - {\cal K} \right)_+$$
+where the underlying assets follow i.i.d.\ GBMs. Following [@Broadie, (MS'04), Table 2 p. 1230] let us take  $\Delta t = 1/3$  with $T=3$, i.e.\ $K=9$ exercise dates.  We further take an OTM initial condition $X(0) = (90,90,90)$ with strike ${\cal K}=100$. The true price of this max-Call is about $V(0,{X}(0))=11.25$ under continuous exercise optionality. 
+```{r 3d-lm}
+modelBrGl3d <- list(K=100, r=0.05, div=0.1, sigma=rep(0.2,3),T=3, dt=1/3,
+  x0=rep(90,3),dim=3, sim.func=sim.gbm,payoff.func=maxi.call.payoff)
+```
+
+To allow comparisons between solvers, I generate a shared test set of 20,000 out-of-sample trajectories and report the resulting mean payoff on that same, fixed `test.3d`.
+
+
+```{r test-3d}
+# Generate out-of-sample test set
+set.seed(44)
+nSims.3d <- 20000
+nSteps.3d <- 9
+test.3d <- list()
+test.3d[[1]] <- sim.gbm( matrix(rep(modelBrGl3d$x0, nSims.3d), nrow=nSims.3d, byrow=T), modelBrGl3d)
+for (i in 2:nSteps.3d)
+   test.3d[[i]] <- sim.gbm( test.3d[[i-1]], modelBrGl3d)
+# European option price
+#mean( exp(-modelBrGl3d$r*modelBrGl3d$T)*modelBrGl3d$payoff.func(test.3d[[nSteps.3d]],modelBrGl3d))  
+```
+
+I start with the random forest (RF) regression emulator. @TompaidisYang13  investigated the use of regression trees for RMC, but I could not find a prior reference for RF's. RF regression  generates a piecewise constant fit obtained as an ensemble estimator from a collection of hierarchical partition trees. Even though the fit is discontinuous, RF's are known to be among the most robust (in terms of scalability, resistance to non-Gaussianity, etc.) emulators and perform excellently in many statistical learning contexts.
+To specify a RF emulator requires inputting the number of trees (`rf.ntree`) and the maximum size of each tree terminal node (`rf.maxnode`) that are passed to the `{randomForest}` package. The rest is all taken care of by `{mlOSP}` and the previously defined `model`. RF is not very fast, but can be scaled to $N > 10^6$ inputs and is agnostic (in terms of coding effort) to problem dimension $d$. Below I use $N=10^5$ training paths.
+
+```{r call3d-random-forest}
+modelBrGl3d$rf.ntree = 200  # random forest parameters
+modelBrGl3d$rf.maxnode=200
+call3d.rf <- osp.prob.design(100000,modelBrGl3d,method="randomforest")
+```
+
+Another general-purpose emulator is neural networks (NN). The `{nnet}` package builds a neural network for $\widehat{T}(k,\cdot)$ with a single hidden layer specified via the number of neurons `nn.nodes` (40 below) and the linear activation function. It provides a streamlined interface that is agnostic to $d$. More advanced versions, such as those in `{keras}` tend to require much more fine-tuning. 
+
+
+```{r nnet-3d}
+modelBrGl3d$nn.nodes <- 40
+call3d.nnet <- osp.prob.design(N=100000,modelBrGl3d, method="nnet")
+```
+
+As a final emulation idea, consider multivariate adaptive regression splines (MARS) as implemented in the `{earth}` package.
+MARS provides adaptive feature selection using a forward-backward selection algorithm. I set the degree to be `earth.deg=2`, so that bases consist of linear/quadratic hinge functions, and allow up to `earth.nk=200` hinges. Finally I also set the backward fit threshold `earth.thresh`. I take this opportunity to also illustrate the TvR scheme which relies on the one-step-ahead value function $\hat{V}(k+1,\cdot)$ instead of $h({\tau}_{\widehat{A}_{k+1:K}}, \cdot)$ during the regression. This is available via the  top-level solver `osp.tvr` that otherwise follows the exact same syntax as `osp.prob.design` and so can be mixed and matched with any of the above regression methods.   
+```{r tvr-3d}
+earthParams <- c(earth.deg=2,earth.nk=200,earth.thresh=1E-8)  # passed to {earth}
+call3d.tvr.mars <- osp.tvr(N=100000, c(modelBrGl3d,earthParams), method="earth")
+```
+
+After having built all these models one can do horse racing on a fixed out-of-sample set of scenarios. A typical call to do so is
+
+```{r}
+oos.tvr.mars <- forward.sim.policy(test.3d,nSteps.3d,call3d.tvr.mars$fit,modelBrGl3d)
+oos.nnet <- forward.sim.policy(test.3d,nSteps.3d,call3d.nnet$fit,modelBrGl3d)
+oos.rf <- forward.sim.policy(test.3d,nSteps.3d,call3d.rf$fit,modelBrGl3d)
+print(paste("MARS: ", mean(oos.tvr.mars$p), " NNet: ", mean(oos.nnet$p), 
+            " Random Forest: ", mean(oos.rf$p)) )
+```
+
+
+## Specifying bases for a linear model
+
+The most extensively studied RMC approach follows the classical regression paradigm of a linear model with explicitly specified bases $B_1(\cdot), \ldots, B_{R-1}(\cdot)$. This means that the approximation space ${\cal H}_k$ has $R$ degrees of freedom and $\widehat{T}(k,\cdot) \in span( B_1, \ldots, B_{R-1})$. From a statistical perspective, any set of linearly independent bases will do, although for theoretical analysis one often picks special (orthogonal) basis families, such as Hermite polynomials. In `{mlOSP}` selecting `method=lm` allows the user to specify any collection of  bases, giving complete transparency on constructing ${\cal H}_k$.
+
+It is well known that linear models are prone to overfitting, in part due to their sensitivity to the Gaussian homoskedastic noise assumption that is strongly violated in RMC. The skewed distribution of $\epsilon(x)$ and state-dependent simulation variance make the resulting fit biased and less stable compared to regularized regression approaches, such as MARS or RF. To avoid overfitting, large training sets are needed, illustrating one of the trade-offs that must be considered for RMC implementations: namely the trade-off between speed (`lm` is effectively the fastest possible regression emulator) and memory (very large `N` required in order not to overfit). The memory constraint precludes scalability of `method=lm` to high dimensions whereby the needed number of bases grows quickly.
+
+As an illustration, the code below defines polynomial bases of degree up to 2 (`bas2`) and up to degree 3 (`bas3`) for the above 3D max-Call example, using $N=3 \cdot 10^5$ (300 thousand) paths. In the latter case, we also append the payoff $h(k,x)$ to the set of bases.
+The first expression below takes ${\cal H}_k = span(1, x_1, x_1^2, x_2, x_2^2, x_1 \cdot x_2, x_3, x_3^2, x_3 \cdot x_2, x_3 \cdot x_1)$ and similarly for degree-3 polynomials. 
+
+```{r lm-method, message=FALSE}
+# polynomials of degree <= 2
+bas2 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2],x[,3],
+                                 x[,3]^2, x[,3]*x[,2],x[,1]*x[,3]))
+# polynomials up to degree 3 + the payoff
+bas3 <- function(x) return(cbind(x[,1],x[,1]^2,x[,2],x[,2]^2,x[,1]*x[,2],x[,3],
+                          x[,3]^2,x[,3]*x[,2],x[,1]*x[,3],x[,1]^3,x[,2]^3,x[,3]^3,
+                          x[,1]^2*x[,2],x[,1]^2*x[,3],x[,2]^2*x[,1],x[,2]^2*x[,3],
+                          x[,3]^2*x[,1],x[,3]^2*x[,2],x[,1]*x[,2]*x[,3],
+                          maxi.call.payoff(x,modelBrGl3d)) )  # include the payoff
+
+modelBrGl3d$bases <- bas2  # 10 coefficients to fit
+lm.run2 <- osp.prob.design(300000,modelBrGl3d,method="lm")
+oos.lm2 <- forward.sim.policy(test.3d, nSteps.3d, lm.run2$fit, modelBrGl3d)
+modelBrGl3d$bases <- bas3  # 21 coefficients to fit
+lm.run3 <- osp.prob.design(300000,modelBrGl3d,method="lm")
+oos.lm3 <- forward.sim.policy(test.3d, nSteps.3d, lm.run3$fit, modelBrGl3d)
+```
+
+
+The second estimator is found to be significantly better, yielding $\check{V}(0,X(0)) =$ `r round(mean(oos.lm3$payoff),digits=4)` compared to `r round(mean(oos.lm2$payoff),digits=4)` for the first one. In other words, having 21 bases is better than having only 10. At the same time it is also 2.5 times slower (`r round(lm.run3$timeElapsed, digits=2)` vs `r round(lm.run2$timeElapsed, digits=3)` seconds). 
+
+One may straightforwardly apply more sophisticated bases, for example based on *order statistics* of $X(k)$ which is a common trick in the context of a max-Call payoff [@BroadieCao08]. Below I first sort $x$ as $x_{(1)} \ge x_{(2)} \ge x_{(3)}$ and then work with the 10-dimensional ${\cal H}_k = span(1, x_{(1)}, x_{(1)}^2, x_{(1)}^3, x_{(1)}^4, x_{(2)}, x_{(2)}^2, x_{(3)}, x_{(1)}\cdot x_{(2)}, x_{(1)} \cdot x_{(3)})$.
+
+```{r sorted-lm}
+modelBrGl3d$bases <-function(x) {
+  sortx <- t(apply(x, 1, sort, decreasing = TRUE)) #sort coordinates in decr order
+  return(cbind(sortx[,1],sortx[,1]^2, sortx[,1]^3,sortx[,1]^4, sortx[,2], 
+               sortx[,2]^2, sortx[,3], sortx[,1]*sortx[,2], sortx[,1]*sortx[,3] ))
+}
+lm.run4 <- osp.prob.design(300000, modelBrGl3d, method="lm")
+```
+
+```{r sorted-lm-oos}
+oos.lm.sorted <- forward.sim.policy(test.3d, nSteps.3d, lm.run4$fit, modelBrGl3d)
+print(mean(oos.lm.sorted$payoff))
+```
+
+The sorted coordinates better convey information about ${\cal S}_k$ than the unsorted ones, yielding the highest option price $\check{V}(0,X(0))$ among all solvers presented. The above examples allude to the limitless scope for customizing ${\cal H}_k$ that is possible with **mlOSP**.
+
+Another approach within the linear model regression framework is to build a piecewise-linear fit for $\widehat{T}(k,\cdot)$ that is defined in terms of partitions of the state space. The Bouchard-Warin algorithm [@BouchardWarin10] 
+adaptively picks the regression sub-domains  based on an equi-probable partition of ${\cal D}_k$. Thus, the sub-domains are empirically selected, typically with a fixed number of partitions in each coordinate of $X$. The 
+`osp.probDesign.piecewisebw` solver implements the above, generating ${\cal D}_k$ from forward trajectories like in the LS scheme (cf.\ `osp.prob.design`). In the example below, I take `nBins=5` bins per coordinate. With $d=3$ and $N=3 \cdot 10^5$ training samples, this implies having $5^3=125$ sub-domains with 2400 trajectories in each. The overall $\widehat{T}(k,\cdot)$ then has 500 coefficients to be fitted, based on running 125 degree-1 `lm` models across the partitions.
+
+```{r piecewise-lm}
+modelBrGl3d$nBins <- 5
+bw.run <- osp.probDesign.piecewisebw(300000,modelBrGl3d,tst.paths=test.3d)
+```
+
+By design, the `mlOSP` software library is a work in progress (and might have additional contributors in the future, via the GitHub pull request mechanism). Consequently, the scope of the implementations will continue to evolve, as will  the precise behavior of the benchmarks which is relative to the respective package versions, and will change as the utilized packages (such as `{DiceKriging}` or `{hetGP}`) get updated. I look forward to feedback and requests for functionality to be added or bugs to be fixed. 
+
+`{mlOSP}` offers almost limitless opportunities for designing and fine-tuning new RMC variants. Many of the mix-and-match options available are just that---experiments to be tried and discarded, being clearly inferior to better choices. Identifying state-of-the-art requires specifying the objective (e.g.\ speed as measured in seconds of runtime), the problem(s) of interest (e.g.\ OSP dimension) and additional forethought on how to combine all the moving parts. 
+
+
+# References {-}
+
+<div id="refs"></div>
